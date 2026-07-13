@@ -1,0 +1,16 @@
+# DSDPBEP86_H2_plus_He_dissociation_limit_def
+# DSD-PBEP86 (69% HF), aug-cc-pVTZ, SIE4x4 H2_plus_He dissociation_limit
+%pal nprocs 16 end
+%maxcore 6000
+! UKS DSD-PBEP86 aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO
+%scf
+  STABPerform true
+  STABRestartUHFifUnstable true
+  MaxIter 500
+end
+
+* xyz 1 2
+H       0.00000000      0.00000000     -5.28637180
+H       0.00000000      0.00000000      5.28637180
+He      0.00000000      0.00000000     11.28637180
+*

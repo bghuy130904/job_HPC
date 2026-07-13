@@ -1,0 +1,17 @@
+# B2PLYP_H2_plus_He_R_1.0_loc
+# B2PLYP (53% HF), aug-cc-pVTZ, SIE4x4 H2_plus_He R_1.0 | fragment (localized) guess
+%pal nprocs 16 end
+%maxcore 6000
+! UKS B2PLYP aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO MOREAD
+%moinp "merged.gbw"
+%scf
+  STABPerform true
+  STABRestartUHFifUnstable true
+  MaxIter 500
+end
+
+* xyz 1 2
+H       0.00000000      0.00000000     -0.52863718
+H       0.00000000      0.00000000      0.52863718
+He      0.00000000      0.00000000      6.52863718
+*

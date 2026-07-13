@@ -1,0 +1,11 @@
+# DSDPBEP86_H2O_2_plus_R_1.5_fragB
+# DSD-PBEP86 (69% HF), aug-cc-pVTZ, SIE4x4 H2O_2_plus R_1.5 | fragB (neutral)
+%pal nprocs 16 end
+%maxcore 6000
+! UKS DSD-PBEP86 aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO
+
+* xyz 0 1
+O      -1.51617786      0.00000000     -0.06984291
+H      -1.64955195      0.77513700      0.50952180
+H      -1.64955195     -0.77513700      0.50952180
+*

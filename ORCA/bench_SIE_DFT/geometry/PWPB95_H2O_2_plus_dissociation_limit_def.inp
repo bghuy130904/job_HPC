@@ -1,0 +1,19 @@
+# PWPB95_H2O_2_plus_dissociation_limit_def
+# PWPB95 (50% HF), aug-cc-pVTZ, SIE4x4 H2O_2_plus dissociation_limit
+%pal nprocs 16 end
+%maxcore 6000
+! UKS PWPB95 aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO
+%scf
+  STABPerform true
+  STABRestartUHFifUnstable true
+  MaxIter 500
+end
+
+* xyz 1 2
+O      -0.33171075     -0.33171075      0.06259225
+H      -1.08674953     -0.33171075     -0.52831631
+H       0.42332803     -0.33171075     -0.52831631
+O       8.33171075      8.33171075      8.71650788
+H       7.51865515      8.33171075      8.13876624
+H       9.14476635      8.33171075      8.13876624
+*

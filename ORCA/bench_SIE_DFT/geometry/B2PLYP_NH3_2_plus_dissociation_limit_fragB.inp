@@ -1,0 +1,12 @@
+# B2PLYP_NH3_2_plus_dissociation_limit_fragB
+# B2PLYP (53% HF), aug-cc-pVTZ, SIE4x4 NH3_2_plus dissociation_limit | fragB (neutral)
+%pal nprocs 16 end
+%maxcore 6000
+! UKS B2PLYP aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO
+
+* xyz 0 1
+N       8.27798285      8.27798285      8.28802826
+H       8.78738295      7.39567599      8.28802826
+H       8.78738295      9.16028971      8.28802826
+H       7.25918264      8.27798285      8.28802826
+*

@@ -1,0 +1,10 @@
+# B2GPPLYP_H2_plus_He_R_1.75_fragB
+# B2GP-PLYP (65% HF), aug-cc-pVTZ, SIE4x4 H2_plus_He R_1.75 | fragB (neutral)
+%pal nprocs 16 end
+%maxcore 6000
+! UKS B2GP-PLYP aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO
+
+* xyz 1 1
+H       0.00000000      0.00000000      0.92511507
+He      0.00000000      0.00000000      6.92511507
+*

@@ -1,0 +1,22 @@
+# B2PLYP_NH3_2_plus_R_1.25_loc
+# B2PLYP (53% HF), aug-cc-pVTZ, SIE4x4 NH3_2_plus R_1.25 | fragment (localized) guess
+%pal nprocs 16 end
+%maxcore 6000
+! UKS B2PLYP aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO MOREAD
+%moinp "merged.gbw"
+%scf
+  STABPerform true
+  STABRestartUHFifUnstable true
+  MaxIter 500
+end
+
+* xyz 1 2
+N       0.00000000      0.00000000     -1.35406924
+H       0.84297303      0.48669071     -1.62974268
+H       0.00000000     -0.97338141     -1.62974268
+H      -0.84297303      0.48669071     -1.62974268
+N       0.00000000      0.00000000      1.35406924
+H       0.84297303     -0.48669071      1.62974268
+H       0.00000000      0.97338141      1.62974268
+H      -0.84297303     -0.48669071      1.62974268
+*

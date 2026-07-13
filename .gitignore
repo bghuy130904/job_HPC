@@ -1,0 +1,12 @@
+*.out
+*.log
+*.gbw
+*.densities
+*.tmp
+*.chk
+*.h5
+*.npy
+*.txt
+slurm-*
+__pycache__/
+*.pyc

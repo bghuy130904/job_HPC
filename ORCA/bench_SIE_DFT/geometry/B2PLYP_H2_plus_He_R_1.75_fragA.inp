@@ -1,0 +1,9 @@
+# B2PLYP_H2_plus_He_R_1.75_fragA
+# B2PLYP (53% HF), aug-cc-pVTZ, SIE4x4 H2_plus_He R_1.75 | fragA (cation)
+%pal nprocs 16 end
+%maxcore 6000
+! UKS B2PLYP aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO
+
+* xyz 0 2
+H       0.00000000      0.00000000     -0.92511507
+*

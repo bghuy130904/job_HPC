@@ -1,0 +1,20 @@
+# DSDPBEP86_H2O_2_plus_R_1.75_loc
+# DSD-PBEP86 (69% HF), aug-cc-pVTZ, SIE4x4 H2O_2_plus R_1.75 | fragment (localized) guess
+%pal nprocs 16 end
+%maxcore 6000
+! UKS DSD-PBEP86 aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO MOREAD
+%moinp "merged.gbw"
+%scf
+  STABPerform true
+  STABRestartUHFifUnstable true
+  MaxIter 500
+end
+
+* xyz 1 2
+O       1.76940075      0.00000000      0.06911068
+H       1.89871988      0.77513700     -0.51117161
+H       1.89871988     -0.77513700     -0.51117161
+O      -1.76940075      0.00000000     -0.06911079
+H      -1.89871983      0.77513700      0.51117250
+H      -1.89871983     -0.77513700      0.51117250
+*

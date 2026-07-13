@@ -1,0 +1,15 @@
+# B2PLYP_He2_plus_R_1.75_def
+# B2PLYP (53% HF), aug-cc-pVTZ, SIE4x4 He2_plus R_1.75
+%pal nprocs 16 end
+%maxcore 6000
+! UKS B2PLYP aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO
+%scf
+  STABPerform true
+  STABRestartUHFifUnstable true
+  MaxIter 500
+end
+
+* xyz 1 2
+He      0.00000000      0.00000000     -0.93992827
+He      0.00000000      0.00000000      0.93992827
+*

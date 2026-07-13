@@ -1,0 +1,16 @@
+# PWPB95_He2_plus_dissociation_limit_loc
+# PWPB95 (50% HF), aug-cc-pVTZ, SIE4x4 He2_plus dissociation_limit | fragment (localized) guess
+%pal nprocs 16 end
+%maxcore 6000
+! UKS PWPB95 aug-cc-pVTZ aug-cc-pVTZ/C RIJCOSX aug-cc-pVTZ/J TightSCF DEFGRID3 NoFrozenCore UNO MOREAD
+%moinp "merged.gbw"
+%scf
+  STABPerform true
+  STABRestartUHFifUnstable true
+  MaxIter 500
+end
+
+* xyz 1 2
+He      0.00000000      0.00000000     -5.37101870
+He      0.00000000      0.00000000      5.37101870
+*
