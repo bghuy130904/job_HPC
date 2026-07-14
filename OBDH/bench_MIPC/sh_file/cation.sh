@@ -11,7 +11,7 @@
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
-INPUT_FILE=/home/vonv0910/work_space/job_HPC/OBDH/bench_MIPC/_src/cation.py
+INPUT_FILE="~/Code/job/OBDH/bench_MIPC/_src/cation.py"
 # Ghi output trực tiếp ra /data
 OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/$SLURM_JOB_ID"
 mkdir -p $OUTPUT_DIR
