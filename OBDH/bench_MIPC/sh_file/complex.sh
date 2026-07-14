@@ -1,21 +1,21 @@
 #!/bin/bash
 
-#SBATCH --job-name=product_CNT_Sn2 ### Job name
-#SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/Menshutkin/_output/product_CNT_Sn2.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/Menshutkin/_error/product_CNT_Sn2.err             ### Standard error file
+#SBATCH --job-name=complex_5 ### Job name
+#SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_output/complex_5.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_error/complex_5.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
-#SBATCH --cpus-per-task=20            ### Number of CPU cores per task
-#SBATCH --mem-per-cpu=6000
+#SBATCH --cpus-per-task=10            ### Number of CPU cores per task
+#SBATCH --mem-per-cpu=4000
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
-INPUT_FILE="/home/giahuy/Code/job/OBDH/obdh_in_dft.py"
+INPUT_FILE=/home/vonv0910/work_space/job_HPC/OBDH/bench_MIPC/_src/complex.py
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/Menshutkin/$SLURM_JOB_ID"
+OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/$SLURM_JOB_ID"
 mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/product_CNT_Sn2.txt"
+OUTPUT_FILE="$OUTPUT_DIR/complex_5.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
@@ -30,8 +30,8 @@ module load python3.9
 source /home/giahuy/venvs_py3_9/bin/activate
 
 export PYTHONPATH="~/venvs_py3_9/lib/python3.13/site-packages:$PYTHONPATH"
-export OPENBLAS_NUM_THREADS=20
-export OMP_NUM_THREADS=20
+export OPENBLAS_NUM_THREADS=10
+export OMP_NUM_THREADS=10
 
 #Compile/run code
 python $INPUT_FILE > $OUTPUT_FILE
