@@ -6,8 +6,8 @@
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
-#SBATCH --cpus-per-task=10            ### Number of CPU cores per task
-#SBATCH --mem-per-cpu=4000
+#SBATCH --cpus-per-task=20            ### Number of CPU cores per task
+#SBATCH --mem-per-cpu=3000
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
@@ -30,8 +30,8 @@ module load python3.9
 source /home/giahuy/venvs_py3_9/bin/activate
 
 export PYTHONPATH="~/venvs_py3_9/lib/python3.13/site-packages:$PYTHONPATH"
-export OPENBLAS_NUM_THREADS=10
-export OMP_NUM_THREADS=10
+export OPENBLAS_NUM_THREADS=20
+export OMP_NUM_THREADS=20
 
 #Compile/run code
 python $INPUT_FILE > $OUTPUT_FILE
