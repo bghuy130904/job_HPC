@@ -7,7 +7,7 @@
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
 #SBATCH --cpus-per-task=20            ### Number of CPU cores per task
-#SBATCH --mem-per-cpu=3000
+#SBATCH --mem-per-cpu=4000
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
