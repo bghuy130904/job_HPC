@@ -84,7 +84,7 @@ mol.atom = '''
 '''
 mol.charge = 2
 mol.spin = 0
-mol.verbose = 2
+mol.verbose = 4
 mol.basis = 'def2-tzvpd'
 mol.max_memory = 120000
 mol.build()
