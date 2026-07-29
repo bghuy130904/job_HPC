@@ -3,11 +3,11 @@
 #SBATCH --job-name=complex_5 ### Job name
 #SBATCH --output=/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/_output/complex_5.out          ### Standard output file
 #SBATCH --error=/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/_error/complex_5.err             ### Standard error file
-#SBATCH --partition=Bigmem            ### queue
+#SBATCH --partition=normal            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
-#SBATCH --cpus-per-task=20            ### Number of CPU cores per task
-#SBATCH --mem-per-cpu=5000
+#SBATCH --cpus-per-task=12            ### Number of CPU cores per task
+#SBATCH --mem-per-cpu=8500
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
@@ -30,8 +30,8 @@ module load python3.9
 source /home/giahuy/venvs_py3_9/bin/activate
 
 export PYTHONPATH="~/venvs_py3_9/lib/python3.13/site-packages:$PYTHONPATH"
-export OPENBLAS_NUM_THREADS=20
-export OMP_NUM_THREADS=20
+export OPENBLAS_NUM_THREADS=12
+export OMP_NUM_THREADS=12
 
 #Compile/run code
 python $INPUT_FILE > $OUTPUT_FILE
