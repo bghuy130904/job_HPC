@@ -1,21 +1,21 @@
 #!/bin/bash
 
-#SBATCH --job-name=ligands_5 ### Job name
-#SBATCH --output=/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/_output/ligands_5.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/_error/ligands_5.err             ### Standard error file
+#SBATCH --job-name=cation_5 ### Job name
+#SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_output/cation_5.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_error/cation_5.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
-#SBATCH --cpus-per-task=12            ### Number of CPU cores per task
-#SBATCH --mem-per-cpu=8500
+#SBATCH --cpus-per-task=20            ### Number of CPU cores per task
+#SBATCH --mem-per-cpu=4000
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
-INPUT_FILE="/home/giahuy/Code/job/OBMP2/bench_MIPC/_src/ligands.py"
+INPUT_FILE="/home/giahuy/Code/job/OBDH/bench_MIPC/_src/cation.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/system_5"
+OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/system_5"
 mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/ligands_5.txt"
+OUTPUT_FILE="$OUTPUT_DIR/cation_5.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
@@ -30,8 +30,8 @@ module load python3.9
 source /home/giahuy/venvs_py3_9/bin/activate
 
 export PYTHONPATH="~/venvs_py3_9/lib/python3.13/site-packages:$PYTHONPATH"
-export OPENBLAS_NUM_THREADS=12
-export OMP_NUM_THREADS=12
+export OPENBLAS_NUM_THREADS=20
+export OMP_NUM_THREADS=20
 
 #Compile/run code
 python $INPUT_FILE > $OUTPUT_FILE
