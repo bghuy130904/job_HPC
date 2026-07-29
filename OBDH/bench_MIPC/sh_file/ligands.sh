@@ -27,14 +27,11 @@ export TMPDIR="$JOB_SCRATCH_PATH"
 #Load các Module như bình thường
 
 module load python3.9
-source /home/giahuy/venvs_py3_9/bin/activate
-
-export PYTHONPATH="~/venvs_py3_9/lib/python3.13/site-packages:$PYTHONPATH"
+source /home/giahuy/.venv/bin/activate
 export OPENBLAS_NUM_THREADS=12
 export OMP_NUM_THREADS=12
 
-#Compile/run code
-python $INPUT_FILE > $OUTPUT_FILE
+PYTHONPATH= python $INPUT_FILE > $OUTPUT_FILE
 
 echo "Job hoàn tất."
 echo "Output đã được ghi trực tiếp vào: $OUTPUT_FILE"
