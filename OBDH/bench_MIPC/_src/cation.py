@@ -1,6 +1,6 @@
 import time
 from pyscf import scf, gto
-from pycmf.OBDH import OBMP2_CL
+from pycmf.OBDH import OBDH_CL
 
 mol = gto.Mole()
 mol.atom = '''
@@ -94,7 +94,7 @@ mf_emb = scf.UHF(mol).density_fit()
 mf_emb.max_memory = 120000            
 mf_emb.with_df.max_memory = 120000    
 mf_emb.run()
-mppp_emb = OBMP2_CL(mf_emb)
+mppp_emb = OBDH_CL(mf_emb)
 mppp_emb.alphaa = (0.53, 0.39)
 mppp_emb.thresh = 1e-08
 mppp_emb.second_order = True
