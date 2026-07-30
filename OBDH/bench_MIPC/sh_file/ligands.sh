@@ -1,4 +1,4 @@
- #!/bin/bash
+#!/bin/bash
 
 #SBATCH --job-name=ligands_5 ### Job name
 #SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_output/ligands_5.out          ### Standard output file
