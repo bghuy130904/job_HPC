@@ -15,7 +15,7 @@ INPUT_FILE="/home/giahuy/Code/job/OBDH/bench_MIPC/_src/cation.py"
 # Ghi output trực tiếp ra /data
 OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/system_5"
 mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/cation_5.txt"
+OUTPUT_FILE="$OUTPUT_DIR/cation_5_bigmem.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
