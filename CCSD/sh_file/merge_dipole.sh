@@ -2,10 +2,10 @@
 #SBATCH --job-name=dipmomt_merge
 #SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/merge_%j.out
 #SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/merge_%j.err
-#SBATCH --partition=normal
+#SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=5
 #SBATCH --mem-per-cpu=4000
 #SBATCH --time=00:15:00
 

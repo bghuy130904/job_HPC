@@ -2,11 +2,11 @@
 #SBATCH --job-name=dipmomt_sp
 #SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/dipmomt_%A_%a.out
 #SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/dipmomt_%A_%a.err
-#SBATCH --partition=normal
+#SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
-#SBATCH --mem-per-cpu=7000
+#SBATCH --mem=40G 
 #SBATCH --time=24:00:00               ### CHỈNH theo giới hạn partition
 #SBATCH --array=0-70%20               ### sp: 71 phân tử -> 0-70 ; nsp (81) -> đổi 0-80
 
