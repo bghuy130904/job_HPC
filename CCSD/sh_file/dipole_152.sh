@@ -6,6 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
+#SBATCH --threads-per-core=1
 #SBATCH --mem=40G 
 #SBATCH --time=24:00:00               ### CHỈNH theo giới hạn partition
 #SBATCH --array=0-70%20               ### sp: 71 phân tử -> 0-70 ; nsp (81) -> đổi 0-80
