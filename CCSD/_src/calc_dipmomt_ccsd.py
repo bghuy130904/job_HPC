@@ -113,11 +113,10 @@ def run_one(mol_name, properties, max_memory):
         mycc.kernel()
         row["E_UCCSD"] = float(mycc.e_tot)           # total, không phải chỉ ecorr
 
-        dm_ao = mycc.make_rdm1(ao_repr=True)                 # 1-RDM ngay trong AO
-        dipvec = scf.hf.dip_moment(mol, dm_ao, unit='Debye') # PySCF lo phần r-integral + hạt nhân
-        dip = float(np.linalg.norm(dipvec))
-        row["dip_x"], row["dip_y"], row["dip_z"] = [float(v) for v in dip]
-        row["dipole_debye"] = float(np.linalg.norm(dip))
+        dm_ao = mycc.make_rdm1(ao_repr=True)                  # 1-RDM ở AO
+        dipvec = scf.hf.dip_moment(mol, dm_ao, unit='Debye')  # vector [x, y, z]
+        row["dip_x"], row["dip_y"], row["dip_z"] = [float(v) for v in dipvec]
+        row["dipole_debye"] = float(np.linalg.norm(dipvec))
 
     except Exception as e:  # nuốt lỗi để 1 phân tử hỏng không giết cả job
         row["status"] = f"ERROR: {type(e).__name__}: {e}"
