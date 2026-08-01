@@ -108,7 +108,7 @@ def run_one(mol_name, properties, max_memory):
             pass
 
         # DF-CCSD: KHÔNG truyền auxbasis -> PySCF tự chọn RI-C phù hợp tương quan
-        mycc = cc.CCSD(mf).density_fit()
+        mycc = cc.CCSD(mf)
         mycc.verbose = 0
         mycc.kernel()
         row["E_UCCSD"] = float(mycc.e_tot)           # total, không phải chỉ ecorr
