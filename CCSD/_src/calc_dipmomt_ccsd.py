@@ -37,28 +37,28 @@ from pycmf.OBDH.stability import stabilize_scf
 
 
 # ----------------------------------------------------------------------
-def compute_ccsd_dipole(mycc, mf, mol, unit="Debye"):
-    """rdm1 (MO) -> AO -> co với tích phân lưỡng cực. Hỗ trợ cả RHF và UHF."""
-    dm1 = mycc.make_rdm1()
+# def compute_ccsd_dipole(mycc, mf, mol, unit="Debye"):
+#     """rdm1 (MO) -> AO -> co với tích phân lưỡng cực. Hỗ trợ cả RHF và UHF."""
+#     dm1 = mycc.make_rdm1()
 
-    if isinstance(mf.mo_coeff, (tuple, list)):
-        mo_a, mo_b = mf.mo_coeff
-        dm1a, dm1b = dm1
-        dm1_ao = reduce(np.dot, (mo_a, dm1a, mo_a.T)) \
-               + reduce(np.dot, (mo_b, dm1b, mo_b.T))
-    else:
-        dm1_ao = reduce(np.dot, (mf.mo_coeff, dm1, mf.mo_coeff.T))
+#     if isinstance(mf.mo_coeff, (tuple, list)):
+#         mo_a, mo_b = mf.mo_coeff
+#         dm1a, dm1b = dm1
+#         dm1_ao = reduce(np.dot, (mo_a, dm1a, mo_a.T)) \
+#                + reduce(np.dot, (mo_b, dm1b, mo_b.T))
+#     else:
+#         dm1_ao = reduce(np.dot, (mf.mo_coeff, dm1, mf.mo_coeff.T))
 
-    with mol.with_common_orig((0, 0, 0)):
-        ao_dip = mol.intor_symmetric("int1e_r", comp=3)
+#     with mol.with_common_orig((0, 0, 0)):
+#         ao_dip = mol.intor_symmetric("int1e_r", comp=3)
 
-    el_dip = np.einsum("xij,ji->x", ao_dip, dm1_ao).real
-    nucl_dip = np.einsum("i,ix->x", mol.atom_charges(), mol.atom_coords())
-    mol_dip = nucl_dip - el_dip
+#     el_dip = np.einsum("xij,ji->x", ao_dip, dm1_ao).real
+#     nucl_dip = np.einsum("i,ix->x", mol.atom_charges(), mol.atom_coords())
+#     mol_dip = nucl_dip - el_dip
 
-    if unit.upper() == "DEBYE":
-        mol_dip = mol_dip * 2.541746  # 1 a.u. = 2.541746 Debye
-    return mol_dip
+#     if unit.upper() == "DEBYE":
+#         mol_dip = mol_dip * 2.541746  # 1 a.u. = 2.541746 Debye
+#     return mol_dip
 
 
 # ----------------------------------------------------------------------
@@ -113,7 +113,9 @@ def run_one(mol_name, properties, max_memory):
         mycc.kernel()
         row["E_UCCSD"] = float(mycc.e_tot)           # total, không phải chỉ ecorr
 
-        dip = compute_ccsd_dipole(mycc, mf, mol)
+        dm_ao = mycc.make_rdm1(ao_repr=True)                 # 1-RDM ngay trong AO
+        dipvec = scf.hf.dip_moment(mol, dm_ao, unit='Debye') # PySCF lo phần r-integral + hạt nhân
+        dip = float(np.linalg.norm(dipvec))
         row["dip_x"], row["dip_y"], row["dip_z"] = [float(v) for v in dip]
         row["dipole_debye"] = float(np.linalg.norm(dip))
 
