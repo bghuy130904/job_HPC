@@ -98,7 +98,7 @@ mf_emb.with_df.max_memory = 120000
 mf_emb.run()
 mppp_emb = OBDH_CL(mf_emb)
 mppp_emb.alphaa = (0.53, 0.39)
-mppp_emb.thresh = 1e-08
+mppp_emb.thresh = 1e-05
 mppp_emb.second_order = True
 mppp_emb.use_embed = True  # Bật Embedding
 mppp_emb.active_atoms = [i for i in range(13)]
