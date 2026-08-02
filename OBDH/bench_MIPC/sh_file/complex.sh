@@ -3,7 +3,7 @@
 #SBATCH --job-name=1BCH_complex_5 ### Job name
 #SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_output/complex_5.out          ### Standard output file
 #SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_error/complex_5.err             ### Standard error file
-#SBATCH --partition=normal            ### queue
+#SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
 #SBATCH --cpus-per-task=12            ### Number of CPU cores per task
