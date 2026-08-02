@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dipmomt_sp
+#SBATCH --job-name=dipmomt_nsp
 #SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/dipmomt_%A_%a.out
 #SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/dipmomt_%A_%a.err
 #SBATCH --partition=Bigmem
@@ -9,14 +9,12 @@
 #SBATCH --threads-per-core=1
 #SBATCH --mem=40G 
 #SBATCH --time=24:00:00               ### CHỈNH theo giới hạn partition
-#SBATCH --array=0-70%20               ### sp: 71 phân tử -> 0-70 ; nsp (81) -> đổi 0-80
+#SBATCH --array=0-80%20               ### sp: 71 phân tử -> 0-70 ; nsp (81) -> đổi 0-80
 
-# ---------------------------------------------------------------------
-# LƯU Ý: sửa lại cho đúng user giahuy (bản cũ trỏ nhầm /home/vonv0910)
-# ---------------------------------------------------------------------
+
 CODE="/home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd.py"
-INPUT="/home/giahuy/Code/job/CCSD/geometry/sp_inputs.json"
-OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/sp"
+INPUT="/home/giahuy/Code/job/CCSD/geometry/nsp_inputs.json"
+OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/nsp"
 
 # thư mục cho log của SBATCH (SLURM KHÔNG tự tạo) + thư mục kết quả
 mkdir -p /data/giahuy/Result/CCSD/dipole_moments/_output
@@ -36,7 +34,7 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # PySCF RAM ~ (mem-per-cpu * cpus) trừ headroom
-export PYSCF_MAX_MEMORY=78000
+export PYSCF_MAX_MEMORY=40000
 
 start=$(date +%s)
 
