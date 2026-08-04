@@ -86,13 +86,13 @@ mol.charge = 2
 mol.spin = 0
 mol.verbose = 4
 mol.basis = 'def2-tzvpd'
-mol.max_memory = 110000
+mol.max_memory = 140000
 mol.build()
 
 print("\n\n>>>>>>>> CHẠY CHẾ ĐỘ: CÓ EMBEDDING & TRUNCATION <<<<<<<<")
 mf_emb = scf.UHF(mol).density_fit()
-mf_emb.max_memory = 110000            
-mf_emb.with_df.max_memory = 110000    
+mf_emb.max_memory = 140000            
+mf_emb.with_df.max_memory = 140000    
 mf_emb.run()
 mppp_emb = OBDH_CL(mf_emb)
 mppp_emb.alphaa = (0.53, 0.39)
