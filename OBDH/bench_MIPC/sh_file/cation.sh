@@ -6,9 +6,9 @@
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
-#SBATCH --cpus-per-task=12            ### Number of CPU cores per task
+#SBATCH --cpus-per-task=16            ### Number of CPU cores per task
 #SBATCH --threads-per-core=1
-#SBATCH --mem=120G
+#SBATCH --mem=150G
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
@@ -29,8 +29,9 @@ export TMPDIR="$JOB_SCRATCH_PATH"
 
 module load python3.9
 source /home/giahuy/.venv/bin/activate
-export OPENBLAS_NUM_THREADS=12
-export OMP_NUM_THREADS=12
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 PYTHONPATH= python $INPUT_FILE > $OUTPUT_FILE
 
