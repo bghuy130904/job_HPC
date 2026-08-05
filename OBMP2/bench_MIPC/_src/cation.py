@@ -12,15 +12,15 @@ mol.atom = '''
    ghost-H     -2.950000   -0.421000    1.305000
    ghost-H     -3.721000   -0.681000    0.029000
 
-   ghost-N      1.259000    2.117000    1.200000
-   ghost-C      2.274000    3.030000    1.403000
-   ghost-C      0.216000    2.474000    1.919000
-   ghost-N      0.476000    3.612000    2.567000
-   ghost-C      1.787000    3.961000    2.262000
-   ghost-H     -0.715000    1.911000    1.973000
-   ghost-H      2.238000    4.843000    2.699000
-   ghost-H      3.250000    2.952000    0.940000
-   ghost-H     -0.141000    4.127000    3.190000
+   # ghost-N      1.259000    2.117000    1.200000
+   # ghost-C      2.274000    3.030000    1.403000
+   # ghost-C      0.216000    2.474000    1.919000
+   # ghost-N      0.476000    3.612000    2.567000
+   # ghost-C      1.787000    3.961000    2.262000
+   # ghost-H     -0.715000    1.911000    1.973000
+   # ghost-H      2.238000    4.843000    2.699000
+   # ghost-H      3.250000    2.952000    0.940000
+   # ghost-H     -0.141000    4.127000    3.190000
 
    # ghost-H     -3.090000   -0.849000   -4.843000
    # ghost-H     -3.123000   -1.574000   -3.232000
@@ -98,7 +98,7 @@ mppp_emb = OBMP2_CL(mf_emb)
 mppp_emb.alphaa = (0.53, 0.39)
 mppp_emb.thresh = 1e-08
 mppp_emb.second_order = True
-mppp_emb.use_embed = True  # Bật Embedding
+mppp_emb.use_embed = False  # Bật Embedding
 mppp_emb.active_atoms = [i for i in range(4)]
 mppp_emb.mu = 1e6
 mppp_emb.use_cl = True      # Bật CL Truncation (chỉ có ý nghĩa khi use_embed=True)
