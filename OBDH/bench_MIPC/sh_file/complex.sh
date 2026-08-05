@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=complex_3 ### Job name
-#SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_output/complex_3.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_error/complex_3.err             ### Standard error file
+#SBATCH --job-name=complex_4 ### Job name
+#SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_output/complex_4.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/_error/complex_4.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
@@ -14,9 +14,9 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/OBDH/bench_MIPC/_src/complex.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/system_3"
+OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/Ligands_Protein/system_4"
 mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/complex_3_bigmem.txt"
+OUTPUT_FILE="$OUTPUT_DIR/complex_4_bigmem.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
