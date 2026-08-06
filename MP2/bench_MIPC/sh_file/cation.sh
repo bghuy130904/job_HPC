@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=cation_2 ### Job name
-#SBATCH --output=/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/_output/cation_2.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/_error/cation_2.err             ### Standard error file
+#SBATCH --job-name=cation_1 ### Job name
+#SBATCH --output=/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/_output/cation_1.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/_error/cation_1.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
@@ -14,9 +14,9 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/MP2/bench_MIPC/_src/cation.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/system_2"
+OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/system_1"
 mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/cation_2.txt"
+OUTPUT_FILE="$OUTPUT_DIR/cation_1.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
