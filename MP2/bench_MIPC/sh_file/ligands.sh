@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=ligands_4 ### Job name
-#SBATCH --output=/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/_output/ligands_4.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/_error/ligands_4.err             ### Standard error file
+#SBATCH --output=/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/_output/ligands_4.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/_error/ligands_4.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
@@ -12,9 +12,9 @@
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
-INPUT_FILE="/home/giahuy/Code/job/OBMP2/bench_MIPC/_src/ligands.py"
+INPUT_FILE="/home/giahuy/Code/job/MP2/bench_MIPC/_src/ligands.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/OBMP2_in_DFT/Ligands_Protein/system_4"
+OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/Ligands_Protein/system_4"
 mkdir -p $OUTPUT_DIR
 OUTPUT_FILE="$OUTPUT_DIR/ligands_4.txt"
 
