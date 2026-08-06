@@ -102,7 +102,7 @@ mf_emb.run()
 # a_c     : he so PT2 one-shot cua double hybrid (0.0 = DFT thuan, khong co PT2)
 # xc_env  : functional mo ta MOI TRUONG B, dong thoi dung de dung v_emb
 BASE_XC = 'pbe0'   # nen cua B2PLYP: 53% HF exchange, 73% LYP
-A_C     = 0.27                                  # B2PLYP: a_c = 0.27
+A_C     = 0.0                                  # B2PLYP: a_c = 0.27
 XC_ENV  = 'b3lyp'          # doi thanh "0.53*HF + 0.47*B88, 0.61*LYP" neu muon khop OBDH alphaa=(0.53,0.39)
 # -----------------------------------------------------------------------------
 
