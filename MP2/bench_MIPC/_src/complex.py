@@ -1,6 +1,6 @@
 import time
 from pyscf import scf, gto
-from pycmf.OBDH import UMP2_CL
+from mp2_embed import UMP2_CL
 
 mol = gto.Mole()
 mol.atom = '''
