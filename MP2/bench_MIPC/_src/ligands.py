@@ -98,7 +98,7 @@ mf_emb.with_df.max_memory = 90000
 mf_emb.run()
 
 mppp_emb = UMP2_CL(mf_emb)
-mppp_emb.xc_env = 'b3lyp'      # functional mo ta moi truong B (khong co alphaa: MP2 khong phai double hybrid)
+mppp_emb.xc_env = '0.53*HF + 0.47*B88, 0.61*LYP'       # functional mo ta moi truong B (khong co alphaa: MP2 khong phai double hybrid)
 mppp_emb.use_embed = False      # Bat Embedding
 mppp_emb.active_atoms = list(range(4))
 mppp_emb.mu = 1e6
