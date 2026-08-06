@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=complex_4 ### Job name
-#SBATCH --output=/data/giahuy/Result/DFT_in_DFT/B2PLYP_in_DFT/bench_MIPC/_output/complex_4.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/DFT_in_DFT/B2PLYP_in_DFT/bench_MIPC/_error/complex_4.err             ### Standard error file
+#SBATCH --job-name=complex_3 ### Job name
+#SBATCH --output=/data/giahuy/Result/DFT_in_DFT/B2PLYP_in_DFT/bench_MIPC/_output/complex_3.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/DFT_in_DFT/B2PLYP_in_DFT/bench_MIPC/_error/complex_3.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
@@ -14,9 +14,9 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/DFT/bench_MIPC/B2PLYP_in_DFT/_src/complex.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/DFT_in_DFT/B2PLYP_in_DFT/bench_MIPC/system_4"
+OUTPUT_DIR="/data/giahuy/Result/DFT_in_DFT/B2PLYP_in_DFT/bench_MIPC/system_3"
 mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/complex_4.txt"
+OUTPUT_FILE="$OUTPUT_DIR/complex_3.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
