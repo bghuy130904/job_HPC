@@ -1,0 +1,121 @@
+import time
+from pyscf import scf, gto
+from _dft_embed import DH_CL
+
+mol = gto.Mole()
+mol.atom = '''
+
+   Mg     0.000000    0.000000    0.000000
+  
+   
+   ghost-O     -2.833000   -0.564000    0.366000
+   ghost-H     -2.950000   -0.421000    1.305000
+   ghost-H     -3.721000   -0.681000    0.029000
+
+
+   ghost-N      1.259000    2.117000    1.200000
+   ghost-C      2.274000    3.030000    1.403000
+   ghost-C      0.216000    2.474000    1.919000
+   ghost-N      0.476000    3.612000    2.567000
+   ghost-C      1.787000    3.961000    2.262000
+   ghost-H     -0.715000    1.911000    1.973000
+   ghost-H      2.238000    4.843000    2.699000
+   ghost-H      3.250000    2.952000    0.940000
+   ghost-H     -0.141000    4.127000    3.190000
+
+
+   ghost-H     -3.090000   -0.849000   -4.843000
+   ghost-H     -3.123000   -1.574000   -3.232000
+   ghost-H     -1.818000   -1.963000   -4.358000
+   ghost-N     -2.092000    1.216000   -3.678000
+   ghost-C     -1.381000    2.409000   -3.245000
+   ghost-H     -2.944000    1.386000   -4.167000
+   ghost-H     -0.306000    2.333000   -3.421000
+   ghost-H     -1.737000    3.265000   -3.823000
+   ghost-H     -1.566000    2.624000   -2.194000
+   ghost-C     -2.470000   -1.163000   -4.002000
+   ghost-C     -1.641000   -0.008000   -3.454000
+   ghost-O     -0.564000   -0.235000   -2.882000
+  
+  
+   ghost-C      1.907000   -3.291000   -1.689000
+   ghost-C      1.346000   -3.497000   -0.280000
+   ghost-O      0.174000   -2.760000    0.001000
+   ghost-H      0.919000   -1.511000   -2.145000
+   ghost-H      1.309000   -3.864000   -2.401000
+   ghost-H      2.109000   -3.214000    0.475000
+   ghost-H      1.099000   -4.574000   -0.171000
+   ghost-H     -0.560000   -3.314000   -0.275000
+   ghost-H      2.912000   -3.718000   -1.758000
+   ghost-C      2.666000    0.237000   -2.896000
+   ghost-C      2.918000   -1.187000   -2.402000
+   ghost-O      4.091000   -1.612000   -2.278000
+   ghost-H      2.252000    0.877000   -2.122000
+   ghost-H      3.611000    0.679000   -3.220000
+   ghost-H      2.003000    0.231000   -3.762000
+   ghost-N      1.838000   -1.895000   -2.096000
+
+
+   # H     -0.888000   -0.995000    2.168000
+   # H      1.126000   -2.285000    2.602000
+   # H      0.466000   -2.892000    4.171000
+   # H      1.960000   -1.303000    4.930000
+   # H      1.727000   -0.243000    3.486000
+   # N     -1.800000   -3.472000    2.355000
+   # C     -2.841000   -4.462000    2.150000
+   # H     -1.017000   -3.545000    1.744000
+   # H     -3.797000   -3.975000    1.948000
+   # H     -2.601000   -5.108000    1.306000
+   # H     -2.959000   -5.085000    3.038000
+   # C     -2.476000    1.238000    5.341000
+   # C     -2.190000    0.304000    4.171000
+   # O     -2.925000    0.291000    3.173000
+   # H     -1.812000    2.101000    5.330000
+   # H     -2.351000    0.710000    6.287000
+   # H     -3.506000    1.595000    5.299000
+   # N     -1.062000   -0.434000    4.178000
+   # C     -0.826000   -1.439000    3.149000
+   # C     -1.843000   -2.530000    3.287000
+   # O     -2.577000   -2.518000    4.256000
+   # C      0.150000   -0.149000    4.940000
+   # C      0.559000   -2.001000    3.514000
+   # C      1.211000   -0.907000    4.212000
+   # H      0.036000   -0.509000    5.984000
+   # H      0.354000    0.942000    4.936000              
+               
+'''
+mol.charge = 2
+mol.spin = 0
+mol.verbose = 4
+mol.basis = 'def2-tzvpd'
+mol.max_memory = 90000
+mol.build()
+
+print("\n\n>>>>>>>> CHAY CHE DO: B2PLYP-in-DFT (EMBEDDING & TRUNCATION) <<<<<<<<")
+mf_emb = scf.UHF(mol).density_fit()
+mf_emb.max_memory = 90000
+mf_emb.with_df.max_memory = 90000
+mf_emb.run()
+
+# ---- Phiem ham: tu dien o day ----------------------------------------------
+# base_xc : functional mo ta VUNG A (muc cao)
+# a_c     : he so PT2 one-shot cua double hybrid (0.0 = DFT thuan, khong co PT2)
+# xc_env  : functional mo ta MOI TRUONG B, dong thoi dung de dung v_emb
+BASE_XC = '0.53*HF + 0.47*B88, 0.73*LYP'   # nen cua B2PLYP: 53% HF exchange, 73% LYP
+A_C     = 0.27                                  # B2PLYP: a_c = 0.27
+XC_ENV  = 'b3lyp'          # doi thanh "0.53*HF + 0.47*B88, 0.61*LYP" neu muon khop OBDH alphaa=(0.53,0.39)
+# -----------------------------------------------------------------------------
+
+mppp_emb = DH_CL(mf_emb, base_xc=BASE_XC, a_c=A_C)
+mppp_emb.method_name = 'B2PLYP'
+mppp_emb.xc_env = XC_ENV
+mppp_emb.use_embed = True      # Bat Embedding
+mppp_emb.active_atoms = list(range(13))
+mppp_emb.mu = 1e6
+mppp_emb.use_cl = True         # CL truncation (chi co y nghia khi a_c != 0)
+mppp_emb.n_shells = 2
+mppp_emb.frozen = None         # None = tuong quan toan bo electron (chi dung khi a_c != 0)
+
+start2 = time.time()
+mppp_emb.run()
+# print('=> Thoi gian chay (Embed + CL): ', time.time() - start2)
