@@ -103,7 +103,7 @@ mf_emb.run()
 # xc_env  : functional mo ta MOI TRUONG B, dong thoi dung de dung v_emb
 BASE_XC = 'pbe0'   # nen cua B2PLYP: 53% HF exchange, 73% LYP
 A_C     = 0.0                                  # B2PLYP: a_c = 0.27
-XC_ENV  = 'b3lyp'          # doi thanh "0.53*HF + 0.47*B88, 0.61*LYP" neu muon khop OBDH alphaa=(0.53,0.39)
+XC_ENV  = '0.53*HF + 0.47*B88, 0.61*LYP'          # doi thanh "0.53*HF + 0.47*B88, 0.61*LYP" neu muon khop OBDH alphaa=(0.53,0.39)
 # -----------------------------------------------------------------------------
 
 mppp_emb = DH_CL(mf_emb, base_xc=BASE_XC, a_c=A_C)

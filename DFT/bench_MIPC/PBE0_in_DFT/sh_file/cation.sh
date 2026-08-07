@@ -16,7 +16,7 @@ INPUT_FILE="/home/giahuy/Code/job/DFT/bench_MIPC/PBE0_in_DFT/_src/cation.py"
 # Ghi output trực tiếp ra /data
 OUTPUT_DIR="/data/giahuy/Result/DFT_in_DFT/PBE0_in_DFT/bench_MIPC/system_1"
 mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/cation_1.txt"
+OUTPUT_FILE="$OUTPUT_DIR/cation_1_xcenv_obdh.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
