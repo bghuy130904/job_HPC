@@ -13,15 +13,15 @@ mol.atom = '''
    ghost-H     -3.721000   -0.681000    0.029000
 
 
-   # ghost-N      1.259000    2.117000    1.200000
-   # ghost-C      2.274000    3.030000    1.403000
-   # ghost-C      0.216000    2.474000    1.919000
-   # ghost-N      0.476000    3.612000    2.567000
-   # ghost-C      1.787000    3.961000    2.262000
-   # ghost-H     -0.715000    1.911000    1.973000
-   # ghost-H      2.238000    4.843000    2.699000
-   # ghost-H      3.250000    2.952000    0.940000
-   # ghost-H     -0.141000    4.127000    3.190000
+   ghost-N      1.259000    2.117000    1.200000
+   ghost-C      2.274000    3.030000    1.403000
+   ghost-C      0.216000    2.474000    1.919000
+   ghost-N      0.476000    3.612000    2.567000
+   ghost-C      1.787000    3.961000    2.262000
+   ghost-H     -0.715000    1.911000    1.973000
+   ghost-H      2.238000    4.843000    2.699000
+   ghost-H      3.250000    2.952000    0.940000
+   ghost-H     -0.141000    4.127000    3.190000
 
 
    # ghost-H     -3.090000   -0.849000   -4.843000
@@ -109,7 +109,7 @@ XC_ENV  = '0.53*HF + 0.47*B88, 0.61*LYP'          # doi thanh "0.53*HF + 0.47*B8
 mppp_emb = DH_CL(mf_emb, base_xc=BASE_XC, a_c=A_C)
 mppp_emb.method_name = 'PBE0'
 mppp_emb.xc_env = XC_ENV
-mppp_emb.use_embed = False      # Bat Embedding
+mppp_emb.use_embed = True      # Bat Embedding
 mppp_emb.active_atoms = list(range(4))
 mppp_emb.mu = 1e6
 mppp_emb.use_cl = True         # CL truncation (chi co y nghia khi a_c != 0)
