@@ -67,7 +67,7 @@ mppp_emb.second_order = True
 mppp_emb.use_embed = True  # Bật Embedding
 mppp_emb.active_atoms = [i for i in range(8)]
 mppp_emb.mu = 1e6
-mppp_emb.use_cl = False      # Bật CL Truncation (chỉ có ý nghĩa khi use_embed=True)
+mppp_emb.use_cl = True      # Bật CL Truncation (chỉ có ý nghĩa khi use_embed=True)
 mppp_emb.n_shells = 2
 
 start2 = time.time()
