@@ -51,7 +51,7 @@ H        4.4296316148      1.8838757773     -4.1588179306
 mol.charge = 2
 mol.spin = 0
 mol.verbose = 4
-mol.basis = 'def2-tzvpd'
+mol.basis = 'def2-tzvp'
 mol.max_memory = 130000
 mol.build()
 
@@ -67,7 +67,7 @@ mppp_emb.second_order = True
 mppp_emb.use_embed = True  # Bật Embedding
 mppp_emb.active_atoms = [i for i in range(8)]
 mppp_emb.mu = 1e6
-mppp_emb.use_cl = True      # Bật CL Truncation (chỉ có ý nghĩa khi use_embed=True)
+mppp_emb.use_cl = False      # Bật CL Truncation (chỉ có ý nghĩa khi use_embed=True)
 mppp_emb.n_shells = 2
 
 start2 = time.time()
