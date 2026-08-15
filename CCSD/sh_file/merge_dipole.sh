@@ -9,12 +9,10 @@
 #SBATCH --mem-per-cpu=4000
 #SBATCH --time=00:15:00
 
-CODE="/home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd.py"
-INPUT="/home/giahuy/Code/job/CCSD/geometry/sp_inputs.json"
-OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/sp"
-
 module load python3.9
 source /home/giahuy/.venv/bin/activate
 
-python "$CODE" --input "$INPUT" --outdir "$OUTDIR" --merge \
-       --output-xlsx "$OUTDIR/dipole152_sp.xlsx"
+python /home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd.py \
+       --input /home/giahuy/Code/job/CCSD/geometry/sp_inputs.json  \
+       --outdir /data/giahuy/Result/CCSD/dipole_moments/sp --merge   \
+       --output-xlsx /data/giahuy/Result/CCSD/dipole_moments/sp/dipole152_sp.xlsx

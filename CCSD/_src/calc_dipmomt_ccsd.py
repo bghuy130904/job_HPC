@@ -93,12 +93,16 @@ def run_one(mol_name, properties, max_memory):
         # SCF: UHF + density fitting (jkfit đúng cho SCF)
         mf = scf.UHF(mol).density_fit(auxbasis="def2-universal-jkfit")
         mf.verbose = 0
+        mf.max_cycle = 100
         mf.kernel()
 
         # Ổn định hóa nghiệm SCF
         mf = stabilize_scf(mf, max_macro_cycles=10, verbose=True)
 
-        if not mf.converged:
+        g = mf.get_grad(mf.mo_coeff, mf.mo_occ, mf.get_fock(dm=mf.make_rdm1()))
+        row["grad_norm"] = float(np.linalg.norm(g))
+        row["converged"] = bool(mf.converged)
+        if row["grad_norm"] > 1e-4:
             row["status"] = "SCF_not_converged"
         row["converged"] = bool(mf.converged)
         row["E_UHF"] = float(mf.e_tot)
