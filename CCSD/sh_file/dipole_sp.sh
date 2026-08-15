@@ -5,9 +5,9 @@
 #SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=12
 #SBATCH --threads-per-core=1
-#SBATCH --mem=60G 
+#SBATCH --mem=40G 
 #SBATCH --time=40:00:00               ### CHỈNH theo giới hạn partition
 #SBATCH --array=0-70%20               ### sp: 71 phân tử -> 0-70 ; nsp (81) -> đổi 0-80
 
@@ -34,7 +34,7 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # PySCF RAM ~ (mem-per-cpu * cpus) trừ headroom
-export PYSCF_MAX_MEMORY=60000
+export PYSCF_MAX_MEMORY=35000
 
 start=$(date +%s)
 
