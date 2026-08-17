@@ -4,7 +4,7 @@ module load python3.9
 source /home/giahuy/.venv/bin/activate
 
 BASE="/data/giahuy/Result/OBDH/dipole_moments"
-CODE="/home/giahuy/Code/job/OBDH/_src/calc_dipmomt_obdh.py"
+CODE="/home/giahuy/Code/job/OBDH/bench_dipole_152/_src/calc_dipmomt_obdh.py"
 
 for tag in sp nsp; do
     [ -d "$BASE/$tag/rows" ] || continue
