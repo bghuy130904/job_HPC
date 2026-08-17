@@ -5,14 +5,14 @@
 #SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=12
+#SBATCH --cpus-per-task=16
 #SBATCH --threads-per-core=1
 #SBATCH --mem=40G 
-#SBATCH --time=40:00:00               ### CHỈNH theo giới hạn partition
+#SBATCH --time=60:00:00               ### CHỈNH theo giới hạn partition
 #SBATCH --array=0-70%20               ### sp: 71 phân tử -> 0-70 ; nsp (81) -> đổi 0-80
 
 
-CODE="/home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd.py"
+CODE="/home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd_ff.py"
 INPUT="/home/giahuy/Code/job/CCSD/geometry/sp_inputs.json"
 OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/sp"
 
