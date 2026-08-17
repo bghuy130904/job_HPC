@@ -13,8 +13,8 @@
                                 ### %4 vi tren c3 ban chi duoc chia ~160 GB:
                                 ### 160/36 = 4 task dong thoi la toi da
 
-CODE="/home/giahuy/Code/job/OBDH/_src/calc_dipmomt_obdh.py"
-INPUT="/home/giahuy/Code/job/OBDH/geometry/sp_inputs.json"
+CODE="/home/giahuy/Code/job/OBDH/bench_dipole_152/_src/calc_dipmomt_obdh.py"
+INPUT="/home/giahuy/Code/job/OBDH/bench_dipole_152/geometry/sp_inputs.json"
 OUTDIR="/data/giahuy/Result/OBDH/dipole_moments/sp"
 
 mkdir -p /data/giahuy/Result/OBDH/dipole_moments/_output
