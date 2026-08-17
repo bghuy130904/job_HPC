@@ -2,7 +2,7 @@
 #SBATCH --job-name=obdh_sp
 #SBATCH --output=/data/giahuy/Result/OBDH/dipole_moments/_output/obdh_%A_%a.out
 #SBATCH --error=/data/giahuy/Result/OBDH/dipole_moments/_error/obdh_%A_%a.err
-#SBATCH --partition=normal
+#SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
