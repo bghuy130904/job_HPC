@@ -7,9 +7,9 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
 #SBATCH --threads-per-core=1
-#SBATCH --mem=36G
-#SBATCH --time=24:00:00
-#SBATCH --array=0-70%4          ### sp: 71 chat -> 0-70 ; nsp (81) -> 0-80
+#SBATCH --mem=24G
+#SBATCH --time=40:00:00
+#SBATCH --array=0-70%20          ### sp: 71 chat -> 0-70 ; nsp (81) -> 0-80
                                 ### %4: tren c3 ban duoc chia ~160 GB, 160/36 = 4
 
 CODE="/home/giahuy/Code/job/DFT/bench_dipole_152/_src/calc_dipmomt_dft.py"
@@ -30,7 +30,8 @@ source /home/giahuy/.venv/bin/activate
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
-export PYSCF_MAX_MEMORY=30000    # thap hon --mem (36864 MB) ~18%
+export PYSCF_MAX_MEMORY=$(( SLURM_MEM_PER_NODE * 75 / 100 ))
+echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY} MB"
 
 start=$(date +%s)
 
