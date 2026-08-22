@@ -2,7 +2,7 @@
 #SBATCH --job-name=dft_sp
 #SBATCH --output=/data/giahuy/Result/DFT/dipole_moments/_output/dft_%A_%a.out
 #SBATCH --error=/data/giahuy/Result/DFT/dipole_moments/_error/dft_%A_%a.err
-#SBATCH --partition=Bigmem
+#SBATCH --partition=normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
