@@ -44,6 +44,9 @@ BASIS        = {"default": "aug-cc-pcvqz", "H": "aug-cc-pvqz"}
 ALPHAA       = (0.53, 0.39)                 # tham số OBDH, theo example.py
 OBDH_THRESH  = 1e-8
 OBDH_NITER   = 300
+FIELD        = 1e-4      # a.u., giong bai bao (sai phan trung tam hai diem)
+AU2DEBYE     = 2.541746
+CURV_WARN    = 1e-5      # |E+ + E- - 2E0| lon hon -> diem truong nhay nghiem
 
 
 def _lazy_imports():
@@ -61,11 +64,18 @@ def grad_norm(mf):
     return float(np.linalg.norm(mf.get_grad(mf.mo_coeff, mf.mo_occ, mf.get_fock(dm=dm))))
 
 
-def _one_scf(mol, guess):
+def _mk_uhf(mol, hcore=None):
     mf = scf.UHF(mol).density_fit(auxbasis="def2-universal-jkfit")
     mf.verbose = 0
-    mf.init_guess = guess
     mf.max_cycle = 150
+    if hcore is not None:
+        mf.get_hcore = lambda *a, **k: hcore
+    return mf
+
+
+def _one_scf(mol, guess):
+    mf = _mk_uhf(mol)
+    mf.init_guess = guess
     mf.kernel()
     if not mf.converged:                      # DIIS bò chậm -> bậc hai
         mf = mf.newton()
@@ -111,41 +121,89 @@ def _dip_from_dm(mol, dm):
     return np.asarray(v, dtype=float)
 
 
-def _post_uhf(mol, mf):
-    return _dip_from_dm(mol, mf.make_rdm1()), float(mf.e_tot), True
 
 
-def _post_ump2(mol, mf):
-    pt = mp.UMP2(mf)
-    pt.verbose = 0
-    pt.kernel()
-    return _dip_from_dm(mol, pt.make_rdm1(ao_repr=True)), float(pt.e_tot), True
 
 
-def _post_ob(mol, mf, hybrid):
-    """OBDH (hybrid=True) hoặc OBMP2 (hybrid=False), đều trên tham chiếu UHF."""
-    solver = OBDH_CL(mf) if hybrid else OBMP2_CL(mf)
-    solver.verbose = 0
-    solver.alphaa = ALPHAA
-    solver.thresh = OBDH_THRESH
-    solver.niter = OBDH_NITER
-    solver.second_order = True
-    solver.mom_select = False
-    solver.use_embed = False
-    solver.use_cl = False
-    solver.run()
-    gamma = solver._gamma
-    dip = _dip_from_dm(mol, (gamma[0], gamma[1]))
-    conv = bool(solver.converged) if solver.converged is not None else None
-    return dip, float(solver.ene_tot), conv
+# ----------------------------------------------------------------------
+def _nuc_dip(mol):
+    return np.einsum('i,ix->x', mol.atom_charges(), mol.atom_coords())
 
 
-METHODS = {
-    "uhf":   ("UHF",   lambda mol, mf: _post_uhf(mol, mf)),
-    "ump2":  ("UMP2",  lambda mol, mf: _post_ump2(mol, mf)),
-    "obmp2": ("OBMP2", lambda mol, mf: _post_ob(mol, mf, hybrid=False)),
-    "obdh":  ("OBDH",  lambda mol, mf: _post_ob(mol, mf, hybrid=True)),
-}
+def _energy_in_field(mol, key, hcore, dm0):
+    """Nang luong cua mot phuong phap voi h1 = hcore0 + F.r."""
+    mf = _mk_uhf(mol, hcore)
+    mf.kernel(dm0=dm0)
+    if not mf.converged:
+        mf = mf.newton()
+        mf.kernel(mf.mo_coeff, mf.mo_occ)
+    if key == "uhf":
+        return float(mf.e_tot)
+    if key == "ump2":
+        pt = mp.UMP2(mf); pt.verbose = 0; pt.kernel()
+        return float(pt.e_tot)
+    s = _mk_solver(mf, hybrid=(key == "obdh"))
+    s.run()
+    return float(s.ene_tot)
+
+
+def dipole_ff(mol, key, mf0, e0):
+    """
+    mu = mu_nuc - dE/dF, sai phan trung tam F = 1e-4 a.u. (nhu bai bao).
+    Diem truong DUNG LAI nghiem truong 0 lam guess -> khong nhay trang thai.
+    Tra ve (vector Debye, do cong lon nhat).
+    Do cong |E+ + E- - 2E0| ~ F^2 * do phan cuc (~1e-8 Eh). Neu lon thi mot
+    diem truong da roi vao nghiem khac -> so lieu chat do khong dung duoc.
+    """
+    h0 = _mk_uhf(mol).get_hcore()
+    with mol.with_common_orig((0, 0, 0)):
+        r = mol.intor('int1e_r', comp=3)
+    dm0 = mf0.make_rdm1()
+    d = np.zeros(3); curv = 0.0
+    for x in range(3):
+        f = np.zeros(3); f[x] = FIELD
+        pert = np.einsum('i,iuv->uv', f, r)
+        ep = _energy_in_field(mol, key, h0 + pert, dm0)
+        em = _energy_in_field(mol, key, h0 - pert, dm0)
+        d[x] = (ep - em) / (2 * FIELD)
+        curv = max(curv, abs(ep + em - 2 * e0))
+    return (_nuc_dip(mol) - d) * AU2DEBYE, curv
+
+
+def _mk_solver(mf, hybrid):
+    s = OBDH_CL(mf) if hybrid else OBMP2_CL(mf)
+    s.verbose = 0
+    s.alphaa = ALPHAA
+    s.thresh = OBDH_THRESH
+    s.niter = OBDH_NITER
+    s.second_order = True
+    s.mom_select = False
+    s.use_embed = False
+    s.use_cl = False
+    return s
+
+
+def _energy_zero_field(mol, key, mf):
+    """Nang luong truong 0 + (neu co) dipole tu mat do, de doi chieu."""
+    if key == "uhf":
+        v = _dip_from_dm(mol, mf.make_rdm1())
+        return float(mf.e_tot), np.asarray(v, float)
+    if key == "ump2":
+        pt = mp.UMP2(mf); pt.verbose = 0; pt.kernel()
+        v = _dip_from_dm(mol, pt.make_rdm1(ao_repr=True))
+        return float(pt.e_tot), np.asarray(v, float)
+    s = _mk_solver(mf, hybrid=(key == "obdh"))
+    s.run()
+    g = s._gamma
+    # LUU Y: _gamma chi la mat do DINH THUC tu orbital da toi uu
+    # (uobdh_solver.py:650 -> mf_emb.make_rdm1(mo_coeff, mo_occ)), KHONG chua
+    # dong gop amplitude. Do o cc-pVDZ: CN OBMP2 lech 198% so voi finite field,
+    # OBDH lech 7.8%. Chi giu lam cot doi chieu, KHONG dung lam ket qua.
+    return float(s.ene_tot), _dip_from_dm(mol, (g[0], g[1]))
+
+
+METHODS = {"uhf": "UHF", "ump2": "UMP2", "obmp2": "OBMP2", "obdh": "OBDH"}
+ANALYTIC = {"uhf"}          # UHF bien phan -> mat do cho dipole dung
 
 
 # ----------------------------------------------------------------------
@@ -154,11 +212,12 @@ def run_one(name, props, max_memory, methods):
     row = {"molecule": name, "charge": props.get("charge"), "spin": props.get("spin"),
            "nao": None, "grad_norm": None, "E_spread_mH": None, "n_guess_ok": None,
            "S2": None, "status": "ok"}
-    for key in methods:
-        tag = METHODS[key][0]
-        row.update({f"E_{tag}": None, f"mu_{tag}": None,
-                    f"mux_{tag}": None, f"muy_{tag}": None, f"muz_{tag}": None,
-                    f"conv_{tag}": None, f"t_{tag}": None})
+    for k in methods:
+        F = METHODS[k]
+        row.update({f"E_{F}": None, f"mu_ff_{F}": None,
+                    f"mux_{F}": None, f"muy_{F}": None, f"muz_{F}": None,
+                    f"mu_dm_{F}": None, f"diff_{F}": None,
+                    f"curv_{F}": None, f"t_{F}": None})
     try:
         mol = gto.Mole()
         mol.atom = [(a[0], tuple(a[1])) for a in props["geometry"]]
@@ -179,23 +238,41 @@ def run_one(name, props, max_memory, methods):
         except Exception:
             pass
 
+        flags = []
         if row["grad_norm"] > GRAD_TOL:
-            row["status"] = "SCF_not_converged"
+            flags.append("SCF_not_converged")
         elif spread > SPREAD_WARN:
-            row["status"] = f"WARN_multi_state(spread={spread:.2f}mH)"
+            flags.append(f"multi_state(spread={spread:.2f}mH)")
 
-        for key in methods:
-            tag, fn = METHODS[key]
+        for k in methods:
+            F = METHODS[k]
             t1 = time.time()
             try:
-                dip, e, conv = fn(mol, mf)
-                row[f"E_{tag}"] = e
-                row[f"mu_{tag}"] = float(np.linalg.norm(dip))
-                row[f"mux_{tag}"], row[f"muy_{tag}"], row[f"muz_{tag}"] = map(float, dip)
-                row[f"conv_{tag}"] = conv
+                e0, dip_dm = _energy_zero_field(mol, k, mf)
+                row[f"E_{F}"] = e0
+                row[f"mu_dm_{F}"] = float(np.linalg.norm(dip_dm))
+
+                if k in ANALYTIC:
+                    # UHF bien phan -> Hellmann-Feynman ap dung, mat do la dung
+                    dip = dip_dm
+                    curv = 0.0
+                else:
+                    dip, curv = dipole_ff(mol, k, mf, e0)
+                    row[f"curv_{F}"] = float(curv)
+                    if curv > CURV_WARN:
+                        flags.append(f"{F}:FF_jump({curv:.1e})")
+
+                row[f"mu_ff_{F}"] = float(np.linalg.norm(dip))
+                row[f"mux_{F}"], row[f"muy_{F}"], row[f"muz_{F}"] = map(float, dip)
+                if row[f"mu_ff_{F}"] > 1e-8:
+                    row[f"diff_{F}"] = 100.0 * (row[f"mu_dm_{F}"] - row[f"mu_ff_{F}"]) \
+                                       / row[f"mu_ff_{F}"]
             except Exception as e:
-                row[f"conv_{tag}"] = f"ERR: {type(e).__name__}: {e}"
-            row[f"t_{tag}"] = round(time.time() - t1, 1)
+                flags.append(f"{F}:ERR({type(e).__name__})")
+            row[f"t_{F}"] = round(time.time() - t1, 1)
+
+        if flags:
+            row["status"] = "WARN " + " ".join(flags)
 
     except Exception as e:
         row["status"] = f"ERROR: {type(e).__name__}: {e}"
@@ -247,7 +324,7 @@ def do_merge(outdir, out_xlsx, ref_json=None):
         sub = df[df.ref.notna()]
         print(f"\n        RMSE regularized so voi {len(sub)} gia tri tham chieu:")
         for tag in ["UHF", "UMP2", "OBMP2", "OBDH"]:
-            col = f"mu_{tag}"
+            col = f"mu_ff_{tag}"
             if col not in sub:
                 continue
             s = sub[sub[col].notna()]
@@ -260,7 +337,8 @@ def do_merge(outdir, out_xlsx, ref_json=None):
 # ----------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", required=True)
+    ap.add_argument("--input", default=None,
+                    help="file JSON hình học (không cần khi --merge)")
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--index", type=int, default=None)
     ap.add_argument("--only", nargs="+", default=None)
@@ -276,9 +354,12 @@ def main():
 
     out_xlsx = args.output_xlsx or os.path.join(args.outdir, "dipole_obdh.xlsx")
 
-    if args.merge:                       # không cần pyscf/pycmf
+    if args.merge:                       # không cần pyscf/pycmf, không cần --input
         do_merge(args.outdir, out_xlsx, args.ref_json)
         return
+
+    if not args.input:
+        ap.error("--input là bắt buộc khi không dùng --merge")
 
     _lazy_imports()
 
@@ -305,7 +386,7 @@ def main():
         print(f"[{i}] {name} ...", flush=True)
         row = run_one(name, props, args.max_memory, args.methods)
         p = write_row(args.outdir, i, row)
-        mus = "  ".join(f"{METHODS[k][0]}={row.get('mu_' + METHODS[k][0])}"
+        mus = "  ".join(f"{METHODS[k]}={row.get('mu_ff_' + METHODS[k])}"
                         for k in args.methods)
         print(f"[{i}] {name}: {row['status']} | |g|={row['grad_norm']} | "
               f"spread={row['E_spread_mH']} mH | {mus} | {row['walltime_s']}s -> {p}",
