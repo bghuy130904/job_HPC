@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=diss
-#SBATCH --output=/data/giahuy/Result/DISS/_output/diss_%A_%a_%N.out
-#SBATCH --error=/data/giahuy/Result/DISS/_error/diss_%A_%a_%N.err
+#SBATCH --output=/data/giahuy/Result/OBDH/bench_dip_noneq_config/_output/diss_%A_%a_%N.out
+#SBATCH --error=/data/giahuy/Result/OBDH/bench_dip_noneq_config/_error/diss_%A_%a_%N.err
 #SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -11,10 +11,10 @@
 #SBATCH --time=40:00:00
 #SBATCH --array=0-1          ### 0 = FH, 1 = FCl (moi he chay LIEN TUC, khong chia nho)
 
-CODE="/home/giahuy/Code/job/DISS/_src/calc_dissociation.py"
-INPUT="/home/giahuy/Code/job/DISS/geometry/dissociation_inputs.json"
-REF="/home/giahuy/Code/job/DISS/geometry/dissociation_reference.json"
-OUTDIR="/data/giahuy/Result/DISS"
+CODE="/home/giahuy/Code/job/OBDH/bench_dip_noneq_config/_src/calc_dissociation.py"
+INPUT="/home/giahuy/Code/job/OBDH/bench_dip_noneq_config/geometry/dissociation_inputs.json"
+REF="/home/giahuy/Code/job/OBDH/bench_dip_noneq_config/geometry/dissociation_reference.json"
+OUTDIR="/data/giahuy/Result/OBDH/bench_dip_noneq_config"
 
 SYS=(FH FCl)
 S=${SYS[$SLURM_ARRAY_TASK_ID]}
