@@ -2,7 +2,7 @@
 #SBATCH --job-name=diss_dft
 #SBATCH --output=/data/giahuy/Result/DFT/bench_dip_noneq_config/_output/diss_%A_%a_%N.out
 #SBATCH --error=/data/giahuy/Result/DFT/bench_dip_noneq_config/_error/diss_%A_%a_%N.err
-#SBATCH --partition=Bigmem
+#SBATCH --partition=normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
@@ -39,8 +39,8 @@ start=$(date +%s)
 # solver cua pyCMF in bang print() thuan, khong bit duoc bang verbose=0.
 # Chuyen stdout sang file rieng de .out chi giu dong tom tat cua script.
 python "$CODE" --input "$INPUT" --outdir "$OUTDIR" --system "$S" \
-       --ref-json "$REF" --methods uhf ump2 obmp2 obdh \
-    | grep -E "^\[|^  r=|MERGE|===|branch_switch|hysteresis|method|benchmark|UHF|UMP2|OBMP2|OBDH"
+       --ref-json "$REF" --methods pbe0 b3lyp b2plyp b2gpplyp pbe0dh pbeqidh \
+    | grep -E "^\[|^  r=|MERGE|===|branch_switch|hysteresis|method|benchmark|PBE0|B3LYP|B2PLYP|B2GPPLYP|PBE0DH|PBEQIDH"
 
 end=$(date +%s); rt=$((end - start))
 printf "He %s xong. Thoi gian: %02d:%02d:%02d\n" "$S" $((rt/3600)) $(((rt%3600)/60)) $((rt%60))

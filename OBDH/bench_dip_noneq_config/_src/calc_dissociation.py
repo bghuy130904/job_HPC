@@ -186,7 +186,14 @@ def _mk_solver(mf, hybrid, mo_start=None):
 
 
 def _energy(mol, key, hcore, dm0, mo_start=None):
-    mf = _solve(mol, dm0=dm0, hcore=hcore, stabilize=False)
+    # Voi phuong phap toi uu orbital, diem truong PHAI duoc on dinh hoa.
+    # Tham chieu pha doi xung (S2 ~ 0.8) co hai nghiem gan suy bien; dm0 cua
+    # truong 0 khong con nam trong luu vuc hut dung khi them +-F, DIIS ve diem
+    # YEN NGUA (grad_norm van tot nen khong lo ra), roi vong OO khuech dai sai
+    # lech. Do o FH r=1.74: khong stabilize -> mu = 34.68 D; co stabilize ->
+    # mu = 2.88 D. UHF/UMP2 khong co vong OO nen khong can.
+    need_stab = key in ("obmp2", "obdh")
+    mf = _solve(mol, dm0=dm0, hcore=hcore, stabilize=need_stab)
     if key == "uhf":
         return float(mf.e_tot)
     if key == "ump2":
