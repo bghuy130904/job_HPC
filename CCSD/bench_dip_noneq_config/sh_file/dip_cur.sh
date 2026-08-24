@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=diss_dft
+#SBATCH --job-name=diss_ccsd
 #SBATCH --output=/data/giahuy/Result/CCSD/bench_dip_noneq_config/_output/diss_%A_%a_%N.out
 #SBATCH --error=/data/giahuy/Result/CCSD/bench_dip_noneq_config/_error/diss_%A_%a_%N.err
-#SBATCH --partition=normal
+#SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
