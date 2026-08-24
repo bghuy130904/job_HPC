@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dipole moment doc duong phan ly FH va FCl — DFT.
+Dipole moment doc duong phan ly FH va FCl — UHF / UMP2 / OBMP2 / OBDH.
 
 BOI CANH
     Hait & Head-Gordon (JCTC 2018) ghi nhan: quanh diem Coulson-Fischer
@@ -372,7 +372,11 @@ def run_curve(system, atoms, rs, methods, max_memory, outdir):
                 if k in ANALYTIC:
                     dip, curv = dip_dm, 0.0
                 else:
-                    dip, curv = dipole_ff(mol, k, mf, e0, mo_ob)
+                    # DH: phai dung nghiem UKS (mo_ob) lam tham chieu cho cac
+                    # diem truong, KHONG dung mf (UHF) — mat do khac nhau se
+                    # keo diem truong sang nhanh khac voi diem truong 0.
+                    ref_mf = mo_ob if (k in DH_FUNCS and mo_ob is not None) else mf
+                    dip, curv = dipole_ff(mol, k, ref_mf, e0, mo_ob)
                     row[f"curv_{F}"] = float(curv)
                     if curv > CURV_WARN:
                         flags.append(f"{F}:FF_jump({curv:.1e})")
