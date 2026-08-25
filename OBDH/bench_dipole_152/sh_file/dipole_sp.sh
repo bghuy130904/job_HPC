@@ -39,8 +39,7 @@ echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY}
 
 start=$(date +%s)
 
-python "$SRC/OBDH/_src/calc_dipmomt_obdh.py" \
-       --input "$INPUT" --outdir "$BASE/obdh" \
+python "$CODE" --input "$INPUT" --outdir "$OUTDIR" \
        --methods uhf ump2 obmp2 obdh --dipole dm \
     | grep -E "^\[|MERGE|status|grad_norm|E_spread"
 
