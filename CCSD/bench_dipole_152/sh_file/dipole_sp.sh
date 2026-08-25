@@ -2,7 +2,7 @@
 #SBATCH --job-name=ccsd_dp_dm
 #SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/dipmomt_dm_%A_%a_%N.out
 #SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/dipmomt_dm_%A_%a_%N.err
-#SBATCH --partition=normal
+#SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=14
