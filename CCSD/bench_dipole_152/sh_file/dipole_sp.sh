@@ -11,8 +11,8 @@
 #SBATCH --time=28:00:00               ### FF mat 15.2 h o chat nang nhat (PPO) -> DM ~2 h
 #SBATCH --array=0-70%6                ### 160 GB duoc chia tren c3 / 24G = 6 task dong thoi
 
-CODE="/home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd_ff.py"
-INPUT="/home/giahuy/Code/job/CCSD/geometry/sp_inputs.json"
+CODE="/home/giahuy/Code/job/CCSD/bench_dipole_152/_src/calc_dipmomt_ccsd_ff.py"
+INPUT="/home/giahuy/Code/job/CCSD/bench_dipole_152/geometry/sp_inputs.json"
 OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/sp_dm"
 
 mkdir -p /data/giahuy/Result/CCSD/dipole_moments/_output
