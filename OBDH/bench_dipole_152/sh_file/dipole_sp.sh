@@ -15,7 +15,7 @@
 
 CODE="/home/giahuy/Code/job/OBDH/bench_dipole_152/_src/calc_dipmomt_obdh.py"
 INPUT="/home/giahuy/Code/job/OBDH/bench_dipole_152/geometry/sp_inputs.json"
-OUTDIR="/data/giahuy/Result/OBDH/dipole_moments/sp"
+OUTDIR="/data/giahuy/Result/OBDH/dipole_moments/sp_dm"
 
 mkdir -p /data/giahuy/Result/OBDH/dipole_moments/_output
 mkdir -p /data/giahuy/Result/OBDH/dipole_moments/_error
