@@ -137,6 +137,16 @@ def _energy_in_field(mol, key, hcore, dm0):
     if not mf.converged:
         mf = mf.newton()
         mf.kernel(mf.mo_coeff, mf.mo_occ)
+
+    # Voi phuong phap toi uu orbital, diem truong PHAI duoc on dinh hoa.
+    # Tham chieu pha doi xung (S2 ~ 0.8) co hai nghiem gan suy bien; dm0 cua
+    # truong 0 khong con nam trong luu vuc hut dung khi them +-F, DIIS ve diem
+    # YEN NGUA (grad_norm van tot nen khong lo ra), roi vong OO khuech dai sai
+    # lech. Do o FH r=1.74: khong stabilize -> mu = 34.68 D; co stabilize ->
+    # mu = 2.88 D. UHF/UMP2 khong co vong OO nen khong can.
+    if key in ("obmp2", "obdh"):
+        mf = stabilize_scf(mf, max_macro_cycles=10, verbose=False)
+
     if key == "uhf":
         return float(mf.e_tot)
     if key == "ump2":
@@ -207,7 +217,7 @@ ANALYTIC = {"uhf"}          # UHF bien phan -> mat do cho dipole dung
 
 
 # ----------------------------------------------------------------------
-def run_one(name, props, max_memory, methods):
+def run_one(name, props, max_memory, methods, mode='dm'):
     t0 = time.time()
     row = {"molecule": name, "charge": props.get("charge"), "spin": props.get("spin"),
            "nao": None, "grad_norm": None, "E_spread_mH": None, "n_guess_ok": None,
@@ -252,7 +262,7 @@ def run_one(name, props, max_memory, methods):
                 row[f"E_{F}"] = e0
                 row[f"mu_dm_{F}"] = float(np.linalg.norm(dip_dm))
 
-                if k in ANALYTIC:
+                if mode == "dm" or k in ANALYTIC:
                     # UHF bien phan -> Hellmann-Feynman ap dung, mat do la dung
                     dip = dip_dm
                     curv = 0.0
@@ -344,6 +354,10 @@ def main():
     ap.add_argument("--only", nargs="+", default=None)
     ap.add_argument("--methods", nargs="+", default=["uhf", "ump2", "obmp2", "obdh"],
                     choices=list(METHODS))
+    ap.add_argument("--dipole", choices=["dm", "ff", "both"], default="dm",
+                    help="dm = mat do qua scf.hf.dip_moment (KHOP voi Tran, PCCP 2022 "
+                         "va voi Hait & Head-Gordon cho HF/DFT); ff = finite field; "
+                         "both = ca hai de doi chieu")
     ap.add_argument("--max-memory", type=int,
                     default=int(os.environ.get("PYSCF_MAX_MEMORY", "30000")))
     ap.add_argument("--merge", action="store_true")
@@ -384,7 +398,7 @@ def main():
 
     for i, name, props in todo:
         print(f"[{i}] {name} ...", flush=True)
-        row = run_one(name, props, args.max_memory, args.methods)
+        row = run_one(name, props, args.max_memory, args.methods, args.dipole)
         p = write_row(args.outdir, i, row)
         mus = "  ".join(f"{METHODS[k]}={row.get('mu_ff_' + METHODS[k])}"
                         for k in args.methods)
