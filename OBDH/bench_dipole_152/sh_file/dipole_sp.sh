@@ -39,8 +39,10 @@ echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY}
 
 start=$(date +%s)
 
-python "$CODE" --input "$INPUT" --outdir "$OUTDIR" \
-       --methods uhf ump2 obmp2 obdh
+python "$SRC/OBDH/_src/calc_dipmomt_obdh.py" \
+       --input "$INPUT" --outdir "$BASE/obdh" \
+       --methods uhf ump2 obmp2 obdh --dipole dm \
+    | grep -E "^\[|MERGE|status|grad_norm|E_spread"
 
 end=$(date +%s); rt=$((end - start))
 printf "Task %s xong. Thoi gian: %02d:%02d:%02d\n" \
