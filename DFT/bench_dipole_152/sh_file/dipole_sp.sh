@@ -7,14 +7,14 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
 #SBATCH --threads-per-core=1
-#SBATCH --mem=24G
+#SBATCH --mem=30G
 #SBATCH --time=40:00:00
 #SBATCH --array=0-70%20          ### sp: 71 chat -> 0-70 ; nsp (81) -> 0-80
                                 ### %4: tren c3 ban duoc chia ~160 GB, 160/36 = 4
 
 CODE="/home/giahuy/Code/job/DFT/bench_dipole_152/_src/calc_dipmomt_dft.py"
 INPUT="/home/giahuy/Code/job/DFT/bench_dipole_152/geometry/sp_inputs.json"
-OUTDIR="/data/giahuy/Result/DFT/dipole_moments/sp"
+OUTDIR="/data/giahuy/Result/DFT/dipole_moments/sp_dm"
 
 mkdir -p /data/giahuy/Result/DFT/dipole_moments/_output
 mkdir -p /data/giahuy/Result/DFT/dipole_moments/_error
@@ -36,7 +36,7 @@ echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY}
 start=$(date +%s)
 
 python "$CODE" --input "$INPUT" --outdir "$OUTDIR" \
-       --funcs pbe0 b3lyp b2plyp
+       --funcs pbe0 b3lyp b2plyp --dipole dm
 
 end=$(date +%s); rt=$((end - start))
 printf "Task %s xong. Thoi gian: %02d:%02d:%02d\n" \

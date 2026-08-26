@@ -159,13 +159,14 @@ def dipole_finite_field(mol, xc, cmp2, dm0=None):
 
 
 # ----------------------------------------------------------------------
-def run_one(name, props, max_memory, funcs):
+def run_one(name, props, max_memory, funcs, mode='dm'):
     t0 = time.time()
     row = {"molecule": name, "charge": props.get("charge"), "spin": props.get("spin"),
            "nao": None, "status": "ok"}
     for k in funcs:
         F = k.upper()
-        row.update({f"E_{F}": None, f"mu_{F}": None,
+        row.update({f"E_{F}": None, f"mu_{F}": None, f"mu_dm_{F}": None,
+                    f"diff_{F}": None,
                     f"mux_{F}": None, f"muy_{F}": None, f"muz_{F}": None,
                     f"grad_{F}": None, f"spread_{F}": None, f"S2_{F}": None,
                     f"t_{F}": None})
@@ -195,17 +196,37 @@ def run_one(name, props, max_memory, funcs):
                     pass
 
                 if cfg["kind"] == "hybrid":
-                    # mật độ KS chính là mật độ của phương pháp -> giải tích
+                    # Mat do KS CHINH LA mat do cua phuong phap (Hohenberg-Kohn),
+                    # nen Hellmann-Feynman ap dung: giai tich la chinh xac.
                     dip = np.asarray(mf.dip_moment(unit='Debye', verbose=0), float)
                     row[f"E_{F}"] = float(mf.e_tot)
+                    row[f"mu_dm_{F}"] = float(np.linalg.norm(dip))
                 else:
-                    # double hybrid: có số hạng MP2 -> finite field
+                    # Double hybrid co so hang MP2:
+                    #   dm = (1-c)*rho_KS + c*rho_MP2  -> mat do unrelaxed, re,
+                    #        cung dinh nghia ma Tran (PCCP 2022) dung cho OBMP2
+                    #   ff = sai phan huu han -> cach cua Hait & Head-Gordon
+                    # Chenh lech do o cc-pVDZ: C2H -0.7 %, CH +1.9 %, HCO +12.4 %,
+                    # O3 +13.4 %, CN +47.8 %.
                     dm0 = mf.make_rdm1()
-                    pt = mp.UMP2(mf)
-                    pt.verbose = 0
-                    pt.kernel()
-                    row[f"E_{F}"] = float(mf.e_tot + cfg["cmp2"] * pt.e_corr)
-                    dip = dipole_finite_field(mol, cfg["xc"], cfg["cmp2"], dm0)
+                    pt = mp.UMP2(mf); pt.verbose = 0; pt.kernel()
+                    c = cfg["cmp2"]
+                    row[f"E_{F}"] = float(mf.e_tot + c * pt.e_corr)
+
+                    dmp = pt.make_rdm1(ao_repr=True)
+                    dm_mix = tuple((1.0 - c) * np.asarray(dm0[i]) + c * np.asarray(dmp[i])
+                                   for i in (0, 1))
+                    dip_dm = np.asarray(scf.hf.dip_moment(mol, dm_mix, unit='Debye',
+                                                          verbose=0), float)
+                    row[f"mu_dm_{F}"] = float(np.linalg.norm(dip_dm))
+
+                    if mode == "dm":
+                        dip = dip_dm
+                    else:
+                        dip = dipole_finite_field(mol, cfg["xc"], c, dm0)
+                        if mode == "both":
+                            nff = float(np.linalg.norm(dip))
+                            row[f"diff_{F}"] = 100.0 * (row[f"mu_dm_{F}"] - nff) / max(nff, 1e-12)
 
                 row[f"mu_{F}"] = float(np.linalg.norm(dip))
                 row[f"mux_{F}"], row[f"muy_{F}"], row[f"muz_{F}"] = map(float, dip)
@@ -293,6 +314,10 @@ def main():
     ap.add_argument("--only", nargs="+", default=None)
     ap.add_argument("--funcs", nargs="+", default=["pbe0", "b3lyp", "b2plyp"],
                     choices=list(FUNCS))
+    ap.add_argument("--dipole", choices=["dm", "ff", "both"], default="dm",
+                    help="dm = mat do qua scf.hf.dip_moment (mac dinh, nhat quan voi "
+                         "nhom WFT); ff = finite field nhu Hait & Head-Gordon; both = ca hai. "
+                         "PBE0/B3LYP luon giai tich vi chung bien phan.")
     ap.add_argument("--max-memory", type=int,
                     default=int(os.environ.get("PYSCF_MAX_MEMORY", "30000")))
     ap.add_argument("--merge", action="store_true")
@@ -331,7 +356,7 @@ def main():
 
     for i, name, props in todo:
         print(f"[{i}] {name} ...", flush=True)
-        row = run_one(name, props, args.max_memory, args.funcs)
+        row = run_one(name, props, args.max_memory, args.funcs, args.dipole)
         p = write_row(args.outdir, i, row)
         mus = "  ".join(f"{k.upper()}={row.get('mu_' + k.upper())}" for k in args.funcs)
         print(f"[{i}] {name}: {row['status']} | {mus} | {row['walltime_s']}s -> {p}",
