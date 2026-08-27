@@ -5,11 +5,11 @@
 #SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=15
+#SBATCH --cpus-per-task=17
 #SBATCH --threads-per-core=1
 #SBATCH --mem=50G
-#SBATCH --time=40:00:00
-#SBATCH --array=0-1          ### 0 = FH, 1 = FCl (moi he chay LIEN TUC, khong chia nho)
+#SBATCH --time=400:00:00
+#SBATCH --array=1          ### 0 = FH, 1 = FCl (moi he chay LIEN TUC, khong chia nho)
 
 CODE="/home/giahuy/Code/job/CCSD/bench_dip_noneq_config/_src/calc_dissociation.py"
 INPUT="/home/giahuy/Code/job/CCSD/bench_dip_noneq_config/geometry/dissociation_inputs.json"
