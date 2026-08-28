@@ -51,9 +51,12 @@ CURV_WARN    = 1e-5      # |E+ + E- - 2E0| lon hon -> diem truong nhay nghiem
 
 def _lazy_imports():
     global gto, scf, cc, mp, stabilize_scf, OBDH_CL, OBMP2_CL
+    global attach
     from pyscf import gto, scf, cc, mp                    # noqa: F401
     from pycmf.OBDH.stability import stabilize_scf        # noqa: F401
     from pycmf.OBDH import OBDH_CL, OBMP2_CL              # noqa: F401
+    # obmp2_rdm1.py phai nam cung thu muc voi script nay (hoac tren PYTHONPATH)
+    from pycmf.OBDH.obdh_rdm1 import attach                         # noqa: F401
     if not hasattr(np.linalg, 'linalg'):
         np.linalg.linalg = np.linalg
 
@@ -130,6 +133,26 @@ def _nuc_dip(mol):
     return np.einsum('i,ix->x', mol.atom_charges(), mol.atom_coords())
 
 
+def symmetry_flag(mol, dip, tol=1e-3):
+    """Truc nao co mu_nuc = 0 thi mu tong cung phai = 0 (doi xung diem).
+
+    Day la dieu kien CHUNG, ap cho ca 71 chat, khong phai ban va cho mot chat.
+    Phan tu khong doi xung khong co truc nao bang 0 -> tu dong thoa.
+
+    Vi pham nghia la nghiem SCF pha doi xung KHONG GIAN (khac voi pha doi xung
+    spin). Vi du ClO2 (C2v quanh truc z): sau stabilize_scf, UHF cho
+    mu = (0, 0.859, 2.077) D -- thanh phan y le ra phai bang 0. UMP2 khuech dai
+    no thanh -5.347 D.
+
+    CHI GHI LAI, khong doi nghiem, khong doi so lieu. Quy trinh giu nguyen cho
+    moi chat; cot nay de biet mot con so bat thuong den tu dau.
+    """
+    nuc = _nuc_dip(mol) * AU2DEBYE
+    bad = [ax for ax, (n, m) in zip("xyz", zip(nuc, np.asarray(dip, float)))
+           if abs(n) < tol and abs(m) > tol]
+    return "".join(bad)
+
+
 def _energy_in_field(mol, key, hcore, dm0):
     """Nang luong cua mot phuong phap voi h1 = hcore0 + F.r."""
     mf = _mk_uhf(mol, hcore)
@@ -193,23 +216,64 @@ def _mk_solver(mf, hybrid):
     return s
 
 
-def _energy_zero_field(mol, key, mf):
-    """Nang luong truong 0 + (neu co) dipole tu mat do, de doi chieu."""
+def _energy_zero_field(mol, key, mf, alpha_c=1.0):
+    """Nang luong truong 0 + cac mat do co the dung + chan doan.
+
+    Tra ve (E, dip_det, dip_unrel, diag):
+      dip_det    mat do DINH THUC tren orbital da toi uu (uobdh_solver.py:650).
+                 So chiem cung 1/0 -> THIEU dong gop amplitude.
+      dip_unrel  I + d_oo + d_vv dung bien do eqn (4) cua Tran, PCCP 2022:
+                 "evaluated using the T2 amplitude (eqn (4)) as in standard
+                 MP2".  Khoi ov = 0.
+      diag       dict chan doan, xem duoi.
+
+    diag['dE_HF_mH'] = E_HF[orbital OBMP2] - E_HF[orbital HF], mHartree.
+        Luon >= 0 vi orbital HF cuc tieu E_HF.  Do "khoang cach nang luong"
+        giua hai bo orbital, tuc muc do hoi phuc orbital ma vong OO da lam.
+        O CN no la 24 mH, di kem goc quay 12.6/17.1 do va <S2> tut tu 1.15
+        xuong 0.77.  Chat nao co so nay lon thi OBMP2 lech xa MP2 chuan.
+
+    diag['occ_max'], ['occ_min'], ['n_bad'] = pho so chiem tu nhien cua mat do
+        unrelaxed.  N-representable khi 0 <= n <= 1.  n_bad dem so orbital ra
+        ngoai khoang do; khac 0 la dau hieu vi pham (Kurlancheek &
+        Head-Gordon, Mol. Phys. 107, 1223).  Luu y Tr = N van dung ke ca khi
+        vi pham, nen hai chot kiem tra nay doc lap.
+
+    Voi UHF/UMP2 thi dip_unrel = dip_det va diag rong.
+    """
     if key == "uhf":
         v = _dip_from_dm(mol, mf.make_rdm1())
-        return float(mf.e_tot), np.asarray(v, float)
+        return float(mf.e_tot), np.asarray(v, float), np.asarray(v, float), {}
     if key == "ump2":
+        # pt.make_rdm1 = gamma_ref + gamma_corr, tuc DA la "unrelaxed"
         pt = mp.UMP2(mf); pt.verbose = 0; pt.kernel()
         v = _dip_from_dm(mol, pt.make_rdm1(ao_repr=True))
-        return float(pt.e_tot), np.asarray(v, float)
+        return float(pt.e_tot), np.asarray(v, float), np.asarray(v, float), {}
+
     s = _mk_solver(mf, hybrid=(key == "obdh"))
     s.run()
     g = s._gamma
-    # LUU Y: _gamma chi la mat do DINH THUC tu orbital da toi uu
-    # (uobdh_solver.py:650 -> mf_emb.make_rdm1(mo_coeff, mo_occ)), KHONG chua
-    # dong gop amplitude. Do o cc-pVDZ: CN OBMP2 lech 198% so voi finite field,
-    # OBDH lech 7.8%. Chi giu lam cot doi chieu, KHONG dung lam ket qua.
-    return float(s.ene_tot), _dip_from_dm(mol, (g[0], g[1]))
+    dip_det = _dip_from_dm(mol, (g[0], g[1]))
+
+    ac = alpha_c if key == "obdh" else 1.0
+    diag = {}
+    try:
+        attach(s, alpha_c=ac)
+        dip_unrel = _dip_from_dm(mol, s.rdm1_unrelaxed(ao_repr=True, alpha_c=ac))
+        occ = np.concatenate(s.natural_occupations(alpha_c=ac))
+        diag["occ_max"] = float(occ.max())
+        diag["occ_min"] = float(occ.min())
+        diag["n_bad"] = int(((occ < -1e-6) | (occ > 1 + 1e-6)).sum())
+    except Exception as e:
+        dip_unrel = np.array([np.nan] * 3)
+        diag["occ_err"] = f"{type(e).__name__}: {e}"
+
+    try:
+        dm_ob = scf.uhf.make_rdm1(s.mo_coeff, mf.mo_occ)
+        diag["dE_HF_mH"] = (mf.energy_tot(dm=dm_ob) - mf.e_tot) * 1000.0
+    except Exception:
+        pass
+    return float(s.ene_tot), dip_det, dip_unrel, diag
 
 
 METHODS = {"uhf": "UHF", "ump2": "UMP2", "obmp2": "OBMP2", "obdh": "OBDH"}
@@ -221,12 +285,19 @@ def run_one(name, props, max_memory, methods, mode='dm'):
     t0 = time.time()
     row = {"molecule": name, "charge": props.get("charge"), "spin": props.get("spin"),
            "nao": None, "grad_norm": None, "E_spread_mH": None, "n_guess_ok": None,
-           "S2": None, "status": "ok"}
+           "S2": None, "sym_break": None, "status": "ok"}
     for k in methods:
         F = METHODS[k]
-        row.update({f"E_{F}": None, f"mu_ff_{F}": None,
+        row.update({f"E_{F}": None,
+                    f"mu_ff_{F}": None,        # -dE/dF  (dipole cua phuong phap)
+                    f"mu_det_{F}": None,       # mat do dinh thuc
+                    f"mu_unrel_{F}": None,     # I + d_oo + d_vv  (= PCCP 2022)
                     f"mux_{F}": None, f"muy_{F}": None, f"muz_{F}": None,
-                    f"mu_dm_{F}": None, f"diff_{F}": None,
+                    f"d_det_ff_{F}": None,     # % lech det vs ff
+                    f"d_unrel_ff_{F}": None,   # % lech unrel vs ff
+                    f"dE_HF_mH_{F}": None,
+                    f"nocc_max_{F}": None, f"nocc_min_{F}": None,
+                    f"n_bad_{F}": None,
                     f"curv_{F}": None, f"t_{F}": None})
     try:
         mol = gto.Mole()
@@ -248,7 +319,14 @@ def run_one(name, props, max_memory, methods, mode='dm'):
         except Exception:
             pass
 
+        try:
+            row["sym_break"] = symmetry_flag(mol, _dip_from_dm(mol, mf.make_rdm1()))
+        except Exception:
+            pass
+
         flags = []
+        if row["sym_break"]:
+            flags.append(f"sym_break({row['sym_break']})")
         if row["grad_norm"] > GRAD_TOL:
             flags.append("SCF_not_converged")
         elif spread > SPREAD_WARN:
@@ -258,14 +336,31 @@ def run_one(name, props, max_memory, methods, mode='dm'):
             F = METHODS[k]
             t1 = time.time()
             try:
-                e0, dip_dm = _energy_zero_field(mol, k, mf)
+                e0, dip_det, dip_unrel, diag = _energy_zero_field(
+                    mol, k, mf, alpha_c=ALPHAA[1])
                 row[f"E_{F}"] = e0
-                row[f"mu_dm_{F}"] = float(np.linalg.norm(dip_dm))
+                row[f"mu_det_{F}"] = float(np.linalg.norm(dip_det))
+                row[f"mu_unrel_{F}"] = float(np.linalg.norm(dip_unrel))
+                if "dE_HF_mH" in diag:
+                    row[f"dE_HF_mH_{F}"] = round(float(diag["dE_HF_mH"]), 4)
+                if "occ_max" in diag:
+                    row[f"nocc_max_{F}"] = round(diag["occ_max"], 8)
+                    row[f"nocc_min_{F}"] = round(diag["occ_min"], 10)
+                    row[f"n_bad_{F}"] = diag["n_bad"]
+                    if diag["n_bad"]:
+                        flags.append(f"{F}:N_repr({diag['n_bad']})")
+                    bad = "  << NGOAI [0,1]" if diag["n_bad"] else ""
+                    print(f"    {F:6} so chiem tu nhien: max {diag['occ_max']:.6f}"
+                          f"  min {diag['occ_min']:+.3e}"
+                          f"  ngoai khoang: {diag['n_bad']}{bad}", flush=True)
+                elif "occ_err" in diag:
+                    print(f"    {F:6} so chiem: {diag['occ_err']}", flush=True)
 
-                if mode == "dm" or k in ANALYTIC:
-                    # UHF bien phan -> Hellmann-Feynman ap dung, mat do la dung
-                    dip = dip_dm
-                    curv = 0.0
+                if k in ANALYTIC:
+                    # UHF bien phan -> Hellmann-Feynman ap dung, mat do LA dipole
+                    dip, curv = dip_det, 0.0
+                elif mode == "dm":
+                    dip, curv = dip_det, 0.0     # khong chay finite field
                 else:
                     dip, curv = dipole_ff(mol, k, mf, e0)
                     row[f"curv_{F}"] = float(curv)
@@ -274,9 +369,12 @@ def run_one(name, props, max_memory, methods, mode='dm'):
 
                 row[f"mu_ff_{F}"] = float(np.linalg.norm(dip))
                 row[f"mux_{F}"], row[f"muy_{F}"], row[f"muz_{F}"] = map(float, dip)
-                if row[f"mu_ff_{F}"] > 1e-8:
-                    row[f"diff_{F}"] = 100.0 * (row[f"mu_dm_{F}"] - row[f"mu_ff_{F}"]) \
-                                       / row[f"mu_ff_{F}"]
+                ref = row[f"mu_ff_{F}"]
+                if ref > 1e-8:
+                    row[f"d_det_ff_{F}"] = 100.0 * (row[f"mu_det_{F}"] - ref) / ref
+                    if np.isfinite(row[f"mu_unrel_{F}"]):
+                        row[f"d_unrel_ff_{F}"] = \
+                            100.0 * (row[f"mu_unrel_{F}"] - ref) / ref
             except Exception as e:
                 flags.append(f"{F}:ERR({type(e).__name__})")
             row[f"t_{F}"] = round(time.time() - t1, 1)
@@ -327,21 +425,53 @@ def do_merge(outdir, out_xlsx, ref_json=None):
         else:
             print("        không chất nào có trạng thái cạnh tranh")
 
+    # nghiem SCF pha doi xung khong gian
+    if "sym_break" in df:
+        sb = df[df.sym_break.fillna("").astype(str) != ""]
+        if len(sb):
+            print(f"        !! {len(sb)} chat co nghiem UHF pha doi xung khong gian:")
+            for _, r in sb.iterrows():
+                print(f"           {r['molecule']:10} truc {r['sym_break']}")
+        else:
+            print(f"        khong chat nao pha doi xung khong gian ({len(df)} chat)")
+
+    # N-representability cua mat do unrelaxed, tren ca tap
+    for tag in ["OBMP2", "OBDH"]:
+        col = f"n_bad_{tag}"
+        if col not in df or df[col].isna().all():
+            continue
+        v = df[df[col].fillna(0) > 0]
+        if len(v):
+            print(f"        !! {tag}: {len(v)} chat co so chiem ngoai [0,1]:")
+            for _, r in v.sort_values(f"nocc_max_{tag}", ascending=False).iterrows():
+                print(f"           {r['molecule']:10} max = {r[f'nocc_max_{tag}']:.6f}"
+                      f"   min = {r[f'nocc_min_{tag}']:+.3e}"
+                      f"   ({int(r[col])} orbital)")
+        else:
+            print(f"        {tag}: mat do unrelaxed N-representable tren ca {len(df)} chat")
+
     # thống kê so với tham chiếu, nếu có
     if ref_json and os.path.exists(ref_json):
         ref = json.load(open(ref_json))
         df["ref"] = df.molecule.map(ref)
         sub = df[df.ref.notna()]
         print(f"\n        RMSE regularized so voi {len(sub)} gia tri tham chieu:")
-        for tag in ["UHF", "UMP2", "OBMP2", "OBDH"]:
-            col = f"mu_ff_{tag}"
-            if col not in sub:
-                continue
-            s = sub[sub[col].notna()]
-            err = 100 * (s[col] - s.ref) / np.maximum(s.ref, 1.0)
-            print(f"          {tag:6} n={len(s):3}  RMSE = {np.sqrt((err**2).mean()):7.2f} %"
-                  f"   ME = {err.mean():+7.2f} %   MAX = {err.abs().max():7.2f} %"
-                  f"  ({s.loc[err.abs().idxmax(), 'molecule'] if len(s) else '-'})")
+        labels = {"mu_ff": "finite field  (-dE/dF)",
+                  "mu_det": "mat do dinh thuc",
+                  "mu_unrel": "unrelaxed I+d_oo+d_vv (= PCCP)"}
+        for pre, lab in labels.items():
+            print(f"\n          --- {lab} ---")
+            for tag in ["UHF", "UMP2", "OBMP2", "OBDH"]:
+                col = f"{pre}_{tag}"
+                if col not in sub:
+                    continue
+                s = sub[sub[col].notna()]
+                if not len(s):
+                    continue
+                err = 100 * (s[col] - s.ref) / np.maximum(s.ref, 1.0)
+                print(f"          {tag:6} n={len(s):3}  RMSE = {np.sqrt((err**2).mean()):7.2f} %"
+                      f"   ME = {err.mean():+7.2f} %   MAX = {err.abs().max():7.2f} %"
+                      f"  ({s.loc[err.abs().idxmax(), 'molecule']})")
 
 
 # ----------------------------------------------------------------------
@@ -354,10 +484,10 @@ def main():
     ap.add_argument("--only", nargs="+", default=None)
     ap.add_argument("--methods", nargs="+", default=["uhf", "ump2", "obmp2", "obdh"],
                     choices=list(METHODS))
-    ap.add_argument("--dipole", choices=["dm", "ff", "both"], default="dm",
-                    help="dm = mat do qua scf.hf.dip_moment (KHOP voi Tran, PCCP 2022 "
-                         "va voi Hait & Head-Gordon cho HF/DFT); ff = finite field; "
-                         "both = ca hai de doi chieu")
+    ap.add_argument("--dipole", choices=["dm", "ff", "both"], default="ff",
+                    help="ff = chay finite field (mac dinh, cot chinh); dm = BO QUA finite "
+                         "field cho nhanh. Ba cot mat do (det, unrel) LUON duoc tinh. "
+                         "")
     ap.add_argument("--max-memory", type=int,
                     default=int(os.environ.get("PYSCF_MAX_MEMORY", "30000")))
     ap.add_argument("--merge", action="store_true")
