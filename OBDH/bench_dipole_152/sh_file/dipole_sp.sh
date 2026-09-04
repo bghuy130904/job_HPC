@@ -40,7 +40,7 @@ echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY}
 start=$(date +%s)
 
 python "$CODE" --input "$INPUT" --outdir "$OUTDIR" \
-       --methods uhf ump2 obmp2 obdh --dipole both \
+       --methods uhf ump2 obmp2 obdh --dipole unrel \
     | grep -E "^\[|MERGE|status|grad_norm|E_spread|dE_HF"
 
 end=$(date +%s); rt=$((end - start))
