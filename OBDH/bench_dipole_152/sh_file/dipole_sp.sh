@@ -5,9 +5,9 @@
 #SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
+#SBATCH --cpus-per-task=15
 #SBATCH --threads-per-core=1
-#SBATCH --mem=24G
+#SBATCH --mem=36G
 #SBATCH --time=48:00:00
 #SBATCH --array=0-70%20          ### sp: 71 chat -> 0-70 ; nsp (81) -> 0-80
                                 ### %4 vi tren c3 ban chi duoc chia ~160 GB:
@@ -15,7 +15,7 @@
 
 CODE="/home/giahuy/Code/job/OBDH/bench_dipole_152/_src/calc_dipmomt_obdh.py"
 INPUT="/home/giahuy/Code/job/OBDH/bench_dipole_152/geometry/sp_inputs.json"
-OUTDIR="/data/giahuy/Result/OBDH/dipole_moments/sp_dm"
+OUTDIR="/data/giahuy/Result/OBDH/dipole_moments/sp"
 
 mkdir -p /data/giahuy/Result/OBDH/dipole_moments/_output
 mkdir -p /data/giahuy/Result/OBDH/dipole_moments/_error
@@ -34,7 +34,7 @@ export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # de thap hon --mem (36G = 36864 MB) khoang 18%: PySCF khong tinh mang tam
 # cua numpy va buffer tich phan vao max_memory
-export PYSCF_MAX_MEMORY=$(( SLURM_MEM_PER_NODE * 75 / 100 ))
+export PYSCF_MAX_MEMORY=$(( SLURM_MEM_PER_NODE * 90 / 100 ))
 echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY} MB"
 
 start=$(date +%s)
