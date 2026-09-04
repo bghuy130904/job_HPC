@@ -20,6 +20,30 @@ VÌ SAO
     Cột mu_dm (mật độ unrelaxed) vẫn được ghi để bạn đo trực tiếp chênh lệch
     trên chính bộ dữ liệu của mình.
 
+CCSD(T) (--levels ccsd ccsd_t, mặc định bật)
+    Thêm cột E_CCSD_T / mu_dm_CCSD_T / mu_ff_CCSD_T để tự dựng giá trị tham
+    chiếu thay vì mượn của nhóm.
+
+    --dipole ff : rẻ. CCSD và CCSD(T) DÙNG CHUNG 6 điểm trường — mỗi điểm chạy
+        SCF + CCSD một lần rồi lấy ra hai năng lượng, nên (T) chỉ thêm 6 lần
+        tính (T), không nhân đôi số lần CCSD.
+    --dipole dm : ĐẮT. Mật độ (T) cần phương trình Lambda có số hạng (T)
+        (uccsd_t_lambda), mỗi vòng lặp Lambda phải dựng lại phần (T) -> khoảng
+        10-30 lần chi phí một lần (T) đơn lẻ. Ở aug-cc-pCVQZ đây là bước đắt
+        nhất của cả script. Nếu chỉ cần năng lượng thì --levels ccsd_t với
+        --dipole ff rẻ hơn nhiều.
+
+    CẢNH BÁO VỀ TỪ "THAM CHIẾU": Hait & Head-Gordon dùng CCSD(T)/CBS (ngoại suy
+    tới giới hạn bộ cơ sở). CCSD(T)/aug-cc-pCVQZ ở đây là MỘT bộ cơ sở, không
+    phải CBS — hai đại lượng khác nhau. Nếu thay giá trị của nhóm bằng cột này
+    thì phải nói rõ trong bài, và nên chạy thêm ít nhất một bộ (aug-cc-pCVTZ)
+    để ước lượng phần còn thiếu tới CBS.
+
+    Mật độ (T) cùng hạng với mật độ CCSD (không có Z-vector), nên vẫn gọi là
+    mu_dm chứ không phải mu_unrel. Đo ở OH/6-31G: CCSD lệch -0.25 % so với
+    finite field, CCSD(T) chỉ lệch +0.07 % — Lambda có (T) hấp thụ thêm phần
+    hồi phục.
+
 CHI PHÍ: 7 lần CCSD mỗi chất (1 trường 0 + 6 trường). Tập SP trước đây mất
     59.9 giờ CPU -> ước tính ~420 giờ. Dùng --dipole dm để quay lại cách cũ.
 
@@ -57,7 +81,9 @@ CURV_WARN    = 1e-5                         # Hartree; |E+ + E- - 2E0| lớn hơ
 
 def _lazy_imports():
     global gto, scf, cc, stabilize_scf
+    global uccsd_t, uccsd_t_lambda, uccsd_t_rdm
     from pyscf import gto, scf, cc                        # noqa: F401
+    from pyscf.cc import uccsd_t, uccsd_t_lambda, uccsd_t_rdm   # noqa: F401
     from pycmf.OBDH.stability import stabilize_scf        # noqa: F401
     if not hasattr(np.linalg, 'linalg'):
         np.linalg.linalg = np.linalg
@@ -83,7 +109,21 @@ def symmetry_flag(mol, dip, tol=1e-3):
                    if abs(n) < tol and abs(m) > tol)
 
 
-def ccsd_density(mol, mycc):
+LEVELS = {"ccsd": "CCSD", "ccsd_t": "CCSD_T"}
+
+
+def _t_lambda(mycc, eris):
+    """Giai phuong trinh Lambda co so hang (T).
+
+    DAT: moi vong lap Lambda phai dung lai phan (T), nen chi phi vao khoang
+    10-30 lan mot lan tinh (T) don le. Day la buoc dat nhat cua ca script khi
+    chay --dipole dm o co aug-cc-pCVQZ.
+    """
+    conv, l1, l2 = uccsd_t_lambda.kernel(mycc, eris, mycc.t1, mycc.t2, verbose=0)
+    return bool(conv), l1, l2
+
+
+def ccsd_density(mol, mycc, l=None, eris=None):
     """Mat do CCSD tu mycc.make_rdm1() -- dung dai luong Tran (PCCP 2022) dung
     lam moc, va ho ghi ro "its density matrix is not relaxed".
 
@@ -94,7 +134,13 @@ def ccsd_density(mol, mycc):
 
     Tra ve (dipole Debye, (occ_max, occ_min, n_bad)).
     """
-    d_mo = mycc.make_rdm1()                       # co so MO
+    if l is None:
+        d_mo = mycc.make_rdm1()                   # CCSD: Lambda cua chinh no
+    else:
+        # CCSD(T): mat do dap ung voi Lambda co so hang (T).
+        # Cung hang voi mat do CCSD (khong co Z-vector), nen van goi la mu_dm.
+        d_mo = uccsd_t_rdm.make_rdm1(mycc, mycc.t1, mycc.t2, l[0], l[1],
+                                     eris=eris, ao_repr=False)
     C = mycc.mo_coeff
     dip = _dip_from_dm(mol, tuple(C[i] @ d_mo[i] @ C[i].conj().T for i in (0, 1)))
     o = np.concatenate([np.linalg.eigvalsh(d) for d in d_mo])
@@ -158,59 +204,80 @@ def run_scf_multiguess(mol):
 
 
 # ----------------------------------------------------------------------
-def _ccsd_in_field(mol, hcore, dm0):
-    """E_CCSD với h1 = hcore0 + F.r. Dùng dm0 của trường 0 làm guess để KHÔNG
-    nhảy sang trạng thái điện tử khác."""
+def _ccsd_in_field(mol, hcore, dm0, want_t):
+    """E_CCSD (va E_CCSD(T) neu want_t) voi h1 = hcore0 + F.r. Dung dm0 cua
+    truong 0 lam guess de KHONG nhay sang trang thai dien tu khac.
+
+    Tra ve (dict {tag: E}, |grad| SCF, CCSD hoi tu?).
+    (T) o day chi la NANG LUONG -- khong can Lambda, nen re: mot lan (T) moi
+    diem truong."""
     mf = _scf_once(mol, hcore=hcore, dm0=dm0)
     g = grad_norm(mf)
     mycc = cc.CCSD(mf)
     mycc.verbose = 0
     mycc.kernel()
-    return float(mycc.e_tot), g, bool(mycc.converged)
+    e = {"CCSD": float(mycc.e_tot)}
+    if want_t:
+        eris = mycc.ao2mo()
+        e["CCSD_T"] = float(mycc.e_tot + uccsd_t.kernel(mycc, eris, mycc.t1,
+                                                        mycc.t2, verbose=0))
+    return e, g, bool(mycc.converged)
 
 
-def dipole_finite_field(mol, mf0, e0):
+def dipole_finite_field(mol, mf0, e0, tags):
     """
-    mu = mu_nuc - dE/dF, sai phân trung tâm.
-    Trả về (vector Debye, max|grad| các điểm trường, max độ cong, số lần CCSD
-    không hội tụ).
-    Độ cong |E+ + E- - 2E0| ~ F^2 * polarizability nên rất nhỏ. Nếu nó lớn thì
-    một điểm trường đã nhảy sang trạng thái khác -> kết quả không dùng được.
+    mu = mu_nuc - dE/dF, sai phan trung tam. CCSD va CCSD(T) dung CHUNG cac
+    diem truong: mot lan SCF + CCSD moi diem, roi lay hai nang luong ra. Nen
+    them (T) chi ton them 6 lan tinh (T), khong nhan doi so lan CCSD.
+
+    Tra ve ({tag: vector Debye}, max|grad|, {tag: max do cong}, so lan CCSD
+    khong hoi tu).
+    Do cong |E+ + E- - 2E0| ~ F^2 * do phan cuc nen rat nho. Neu no lon thi mot
+    diem truong da nhay sang trang thai khac -> ket qua khong dung duoc.
     """
     h0 = _mk_uhf(mol).get_hcore()
     with mol.with_common_orig((0, 0, 0)):
         r = mol.intor('int1e_r', comp=3)
     dm0 = mf0.make_rdm1()
+    want_t = "CCSD_T" in tags
 
-    d = np.zeros(3)
-    gmax, curv, nbad = 0.0, 0.0, 0
+    d = {t: np.zeros(3) for t in tags}
+    curv = {t: 0.0 for t in tags}
+    gmax, nbad = 0.0, 0
     for x in range(3):
         f = np.zeros(3)
         f[x] = FIELD
         pert = np.einsum('i,iuv->uv', f, r)
-        ep, gp, cp = _ccsd_in_field(mol, h0 + pert, dm0)
-        em, gm, cm = _ccsd_in_field(mol, h0 - pert, dm0)
-        d[x] = (ep - em) / (2 * FIELD)
+        ep, gp, cp = _ccsd_in_field(mol, h0 + pert, dm0, want_t)
+        em, gm, cm = _ccsd_in_field(mol, h0 - pert, dm0, want_t)
         gmax = max(gmax, gp, gm)
-        curv = max(curv, abs(ep + em - 2 * e0))
         nbad += (not cp) + (not cm)
+        for t in tags:
+            d[t][x] = (ep[t] - em[t]) / (2 * FIELD)
+            curv[t] = max(curv[t], abs(ep[t] + em[t] - 2 * e0[t]))
 
     nuc = np.einsum('i,ix->x', mol.atom_charges(), mol.atom_coords())
-    return (nuc - d) * AU2DEBYE, gmax, curv, nbad
+    return {t: (nuc - d[t]) * AU2DEBYE for t in tags}, gmax, curv, nbad
 
 
 # ----------------------------------------------------------------------
-def run_one(name, props, max_memory, mode):
+def run_one(name, props, max_memory, mode, levels=("ccsd", "ccsd_t")):
+    tags = [LEVELS[k] for k in levels]
+    want_t = "CCSD_T" in tags
+
     t0 = time.time()
     row = {"molecule": name, "charge": props.get("charge"), "spin": props.get("spin"),
            "nao": None, "converged": None, "grad_norm": None, "E_spread_mH": None,
-           "n_guess_ok": None, "S2": None, "sym_break": None,
-           "E_UHF": None, "E_UCCSD": None,
-           "mu_ff_CCSD": None, "mux_ff": None, "muy_ff": None, "muz_ff": None,
-           "mu_dm_CCSD": None, "d_dm_ff_CCSD": None,
-           "nocc_max_CCSD": None, "nocc_min_CCSD": None, "n_bad_CCSD": None,
-           "ff_grad_max": None, "ff_curv": None, "ff_ccsd_bad": None,
+           "n_guess_ok": None, "S2": None, "sym_break": None, "E_UHF": None,
+           "ff_grad_max": None, "ff_ccsd_bad": None,
            "walltime_s": None, "status": "ok"}
+    for T in ("CCSD", "CCSD_T"):
+        row.update({f"E_{T}": None,
+                    f"mu_dm_{T}": None, f"mu_ff_{T}": None, f"d_dm_ff_{T}": None,
+                    f"mux_dm_{T}": None, f"muy_dm_{T}": None, f"muz_dm_{T}": None,
+                    f"mux_ff_{T}": None, f"muy_ff_{T}": None, f"muz_ff_{T}": None,
+                    f"nocc_max_{T}": None, f"nocc_min_{T}": None, f"n_bad_{T}": None,
+                    f"lambda_conv_{T}": None, f"curv_{T}": None})
     try:
         mol = gto.Mole()
         mol.atom = [(a[0], tuple(a[1])) for a in props["geometry"]]
@@ -232,7 +299,6 @@ def run_one(name, props, max_memory, mode):
             row["S2"] = float(mf.spin_square()[0])
         except Exception:
             pass
-
         try:
             row["sym_break"] = symmetry_flag(mol, _dip_from_dm(mol, mf.make_rdm1()))
         except Exception:
@@ -246,42 +312,65 @@ def run_one(name, props, max_memory, mode):
         elif spread > SPREAD_WARN:
             flags.append(f"multi_state(spread={spread:.2f}mH)")
 
-        # trường 0: lấy E_CCSD và (nếu cần) mật độ unrelaxed
+        # ---------- truong 0 ----------
         mycc = cc.CCSD(mf)
         mycc.verbose = 0
         mycc.kernel()
-        row["E_UCCSD"] = float(mycc.e_tot)
         if not mycc.converged:
             flags.append("CCSD_not_converged")
+        row["E_CCSD"] = float(mycc.e_tot)
 
-        # mat do LUON duoc tinh (mien phi: dung lai Lambda da giai)
-        dip_dm, occ = ccsd_density(mol, mycc)
-        row["mu_dm_CCSD"] = float(np.linalg.norm(dip_dm))
-        row["nocc_max_CCSD"], row["nocc_min_CCSD"], row["n_bad_CCSD"] = occ
-        if row["n_bad_CCSD"]:
-            flags.append(f"N_repr({row['n_bad_CCSD']})")
-        print(f"    CCSD   so chiem tu nhien: max {occ[0]:.6f}  min {occ[1]:+.3e}"
-              f"  ngoai khoang: {occ[2]}"
-              f"{'  << NGOAI [0,1]' if occ[2] else ''}", flush=True)
+        eris = mycc.ao2mo() if want_t else None
+        if want_t:
+            et = uccsd_t.kernel(mycc, eris, mycc.t1, mycc.t2, verbose=0)
+            row["E_CCSD_T"] = float(mycc.e_tot + et)
 
+        # ---------- mat do ----------
+        # CCSD mien phi (Lambda cua no duoc giai san). CCSD(T) thi KHONG:
+        # no can Lambda co so hang (T), dat gap hang chuc lan. Vi vay mat do
+        # (T) chi duoc tinh khi thuc su xin muc do do.
+        for T in tags:
+            if T == "CCSD":
+                dip_dm, occ = ccsd_density(mol, mycc)
+                row["lambda_conv_CCSD"] = True
+            else:
+                conv, l1, l2 = _t_lambda(mycc, eris)
+                row["lambda_conv_CCSD_T"] = conv
+                if not conv:
+                    flags.append("T_lambda_not_converged")
+                dip_dm, occ = ccsd_density(mol, mycc, l=(l1, l2), eris=eris)
+            row[f"mu_dm_{T}"] = float(np.linalg.norm(dip_dm))
+            row[f"mux_dm_{T}"], row[f"muy_dm_{T}"], row[f"muz_dm_{T}"] = map(float, dip_dm)
+            row[f"nocc_max_{T}"], row[f"nocc_min_{T}"], row[f"n_bad_{T}"] = occ
+            if occ[2]:
+                flags.append(f"{T}:N_repr({occ[2]})")
+            print(f"    {T:7} so chiem tu nhien: max {occ[0]:.6f}  min {occ[1]:+.3e}"
+                  f"  ngoai khoang: {occ[2]}"
+                  f"{'  << NGOAI [0,1]' if occ[2] else ''}", flush=True)
+
+        # ---------- finite field ----------
+        # mu_ff CHI duoc ghi bang mot so thuc su la -dE/dF. Khong bao gio do
+        # mu_dm vao day: cot phai giu dung nhan cua no. O mode 'dm' thi
+        # mu_ff_* de trong, va cot mu_dm_* da co san gia tri mat do.
         if mode == "ff":
-            dip, gmax, curv, nbad = dipole_finite_field(mol, mf, row["E_UCCSD"])
+            e0 = {T: row[f"E_{T}"] for T in tags}
+            dips, gmax, curv, nbad = dipole_finite_field(mol, mf, e0, tags)
             row["ff_grad_max"] = float(gmax)
-            row["ff_curv"] = float(curv)
             row["ff_ccsd_bad"] = int(nbad)
             if gmax > GRAD_TOL:
                 flags.append(f"FF_SCF(|g|={gmax:.1e})")
-            if curv > CURV_WARN:
-                flags.append(f"FF_state_jump(curv={curv:.1e})")
             if nbad:
                 flags.append(f"FF_CCSD_bad={nbad}")
-        else:
-            dip = dip_dm                 # bo qua finite field
-        row["mu_ff_CCSD"] = float(np.linalg.norm(dip))
-        row["mux_ff"], row["muy_ff"], row["muz_ff"] = map(float, dip)
-        if row["mu_ff_CCSD"] > 1e-8:
-            row["d_dm_ff_CCSD"] = 100.0 * (row["mu_dm_CCSD"] - row["mu_ff_CCSD"]) \
-                                  / row["mu_ff_CCSD"]
+            for T in tags:
+                row[f"curv_{T}"] = float(curv[T])
+                if curv[T] > CURV_WARN:
+                    flags.append(f"{T}:FF_state_jump({curv[T]:.1e})")
+                ref = float(np.linalg.norm(dips[T]))
+                row[f"mu_ff_{T}"] = ref
+                row[f"mux_ff_{T}"], row[f"muy_ff_{T}"], row[f"muz_ff_{T}"] = \
+                    map(float, dips[T])
+                if ref > 1e-8:
+                    row[f"d_dm_ff_{T}"] = 100.0 * (row[f"mu_dm_{T}"] - ref) / ref
 
         if flags:
             row["status"] = "WARN " + " ".join(flags)
@@ -294,6 +383,17 @@ def run_one(name, props, max_memory, mode):
 
 
 # ----------------------------------------------------------------------
+def _fmt_dip(row, T):
+    """Chuoi tom tat cho MOT muc ly thuyet: chi liet ke dai luong da thuc su
+    tinh duoc. Muc khong chay (hoac chay loi) tra ve chuoi rong."""
+    parts = [f"{lab}={row[c]:.4f}"
+             for c, lab in ((f"mu_dm_{T}", "dm"), (f"mu_ff_{T}", "ff"))
+             if row.get(c) is not None and np.isfinite(row[c])]
+    if row.get(f"d_dm_ff_{T}") is not None:
+        parts.append(f"lech={row[f'd_dm_ff_{T}']:+.2f}%")
+    return f"{T}[{' '.join(parts)}]" if parts else ""
+
+
 def write_row(outdir, idx, row):
     rows_dir = os.path.join(outdir, "rows")
     os.makedirs(rows_dir, exist_ok=True)
@@ -321,9 +421,11 @@ def do_merge(outdir, out_xlsx, ref_json=None):
     print(f"        chất có cảnh báo: {len(bad)}")
     for _, r in bad.iterrows():
         print(f"          {r['molecule']:10} {r['status']}")
-    if "ff_curv" in df and df.ff_curv.notna().any():
-        print(f"        độ cong finite-field max: {df.ff_curv.max():.2e} "
-              f"({df.loc[df.ff_curv.idxmax(), 'molecule']})")
+    for T in ("CCSD", "CCSD_T"):
+        c = f"curv_{T}"
+        if c in df and df[c].notna().any():
+            print(f"        {T:7} độ cong finite-field max: {df[c].max():.2e} "
+                  f"({df.loc[df[c].idxmax(), 'molecule']})")
 
     if "sym_break" in df:
         sb = df[df.sym_break.fillna("").astype(str) != ""]
@@ -334,39 +436,50 @@ def do_merge(outdir, out_xlsx, ref_json=None):
         else:
             print(f"        không chất nào phá đối xứng không gian ({len(df)} chất)")
 
-    if "n_bad_CCSD" in df and df.n_bad_CCSD.notna().any():
-        v = df[df.n_bad_CCSD.fillna(0) > 0]
-        if len(v):
-            print(f"        !! {len(v)} chất có số chiếm CCSD ngoài [0,1]:")
-            for _, r in v.sort_values("nocc_max_CCSD", ascending=False).iterrows():
-                print(f"           {r['molecule']:10} max = {r['nocc_max_CCSD']:.6f}"
-                      f"   min = {r['nocc_min_CCSD']:+.3e}   ({int(r['n_bad_CCSD'])} orbital)")
-        else:
-            print(f"        mật độ CCSD N-representable trên cả {len(df)} chất")
+    for T in ("CCSD", "CCSD_T"):
+        cb = f"n_bad_{T}"
+        if cb in df and df[cb].notna().any():
+            v = df[df[cb].fillna(0) > 0]
+            if len(v):
+                print(f"        !! {len(v)} chất có số chiếm {T} ngoài [0,1]:")
+                for _, r in v.sort_values(f"nocc_max_{T}", ascending=False).iterrows():
+                    print(f"           {r['molecule']:10} max = {r[f'nocc_max_{T}']:.6f}"
+                          f"   min = {r[f'nocc_min_{T}']:+.3e}   ({int(r[cb])} orbital)")
+            else:
+                print(f"        mật độ {T} N-representable trên cả {len(df)} chất")
 
-    c = "d_dm_ff_CCSD"
-    if c in df and df[c].notna().any():
-        t = df[df[c].notna()]
-        print(f"        mật độ (make_rdm1) so với finite field: "
-              f"RMS {np.sqrt((t[c]**2).mean()):.2f} %   "
-              f"max {t[c].abs().max():.2f} % ({t.loc[t[c].abs().idxmax(),'molecule']})")
+        cl = f"lambda_conv_{T}"
+        if cl in df and df[cl].notna().any():
+            nb = (~df[cl].fillna(True).astype(bool)).sum()
+            if nb:
+                print(f"        !! {T}: {nb} chất có Lambda không hội tụ")
+
+        c = f"d_dm_ff_{T}"
+        if c in df and df[c].notna().any():
+            t = df[df[c].notna()]
+            print(f"        {T:7} mật độ so với finite field: "
+                  f"RMS {np.sqrt((t[c]**2).mean()):.2f} %   "
+                  f"max {t[c].abs().max():.2f} % ({t.loc[t[c].abs().idxmax(),'molecule']})")
 
     if ref_json and os.path.exists(ref_json):
         ref = json.load(open(ref_json))
         df["ref"] = df.molecule.map(ref)
         sub = df[df.ref.notna()]
         print(f"\n        RMSE regularized so với {len(sub)} giá trị CCSD(T)/CBS:")
-        for col, tag in [("mu_ff_CCSD", "finite field (-dE/dF)"),
-                         ("mu_dm_CCSD", "mật độ (make_rdm1)")]:
-            if col not in sub:
-                continue
-            s = sub[sub[col].notna()]
-            if not len(s):
-                continue
-            err = 100 * (s[col] - s.ref) / np.maximum(s.ref, 1.0)
-            print(f"          {tag:22} n={len(s):3}  RMSE = {np.sqrt((err**2).mean()):6.2f} %"
-                  f"   ME = {err.mean():+6.2f} %"
-                  f"   MAX = {err.abs().max():6.2f} % ({s.loc[err.abs().idxmax(),'molecule']})")
+        for pre, lab in (("mu_dm", "mật độ"), ("mu_ff", "finite field (-dE/dF)")):
+            for T in ("CCSD", "CCSD_T"):
+                col = f"{pre}_{T}"
+                if col not in sub:
+                    continue
+                t = sub[sub[col].notna()]
+                if not len(t):
+                    continue
+                err = 100 * (t[col] - t.ref) / np.maximum(t.ref, 1.0)
+                print(f"          {T:7} {lab:24} n={len(t):3}  "
+                      f"RMSE = {np.sqrt((err**2).mean()):6.2f} %"
+                      f"   ME = {err.mean():+6.2f} %"
+                      f"   MAX = {err.abs().max():6.2f} % "
+                      f"({t.loc[err.abs().idxmax(),'molecule']})")
         print("          (bài báo, CCSD trên tập SP: RMSE 4.80 %)")
 
 
@@ -378,10 +491,20 @@ def main():
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--index", type=int, default=None)
     ap.add_argument("--only", nargs="+", default=None)
+    ap.add_argument("--levels", nargs="+", default=["ccsd", "ccsd_t"],
+                    choices=list(LEVELS),
+                    help="muc ly thuyet nao duoc tinh. ccsd_t them cot CCSD(T) "
+                         "de tu dung lam tham chieu thay cho gia tri cua nhom. "
+                         "Chi phi: o --dipole ff chi them 6 lan tinh (T) (dung "
+                         "chung diem truong voi CCSD); o --dipole dm thi them "
+                         "phuong trinh Lambda co so hang (T), DAT gap hang chuc "
+                         "lan mot lan (T) don le.")
     ap.add_argument("--dipole", choices=["ff", "dm"], default="ff",
                     help="ff = chạy finite field (mặc định, cột chính); "
-                         "dm = BỎ QUA finite field cho rẻ gấp 7 lần. Ba cột mật "
-                         "độ (det, unrel, lambda) LUÔN được tính trong cả hai chế độ.")
+                         "dm = BỎ QUA finite field, rẻ gấp 7 lần. Cột mu_dm_CCSD "
+                         "(mycc.make_rdm1) LUÔN được tính trong cả hai chế độ vì "
+                         "nó miễn phí — Lambda đã được giải sẵn. Ở chế độ dm thì "
+                         "mu_ff_CCSD để trống, KHÔNG bị điền bằng mu_dm.")
     ap.add_argument("--max-memory", type=int,
                     default=int(os.environ.get("PYSCF_MAX_MEMORY", "30000")))
     ap.add_argument("--merge", action="store_true")
@@ -420,10 +543,10 @@ def main():
 
     for i, name, props in todo:
         print(f"[{i}] {name} ...", flush=True)
-        row = run_one(name, props, args.max_memory, args.dipole)
+        row = run_one(name, props, args.max_memory, args.dipole, args.levels)
         p = write_row(args.outdir, i, row)
-        print(f"[{i}] {name}: {row['status']} | ff={row['mu_ff_CCSD']} "
-              f"dm={row['mu_dm_CCSD']} lệch={row['d_dm_ff_CCSD']}% | "
+        print(f"[{i}] {name}: {row['status']} | "
+              f"{'  '.join(x for x in (_fmt_dip(row, LEVELS[k]) for k in args.levels) if x)} | "
               f"|g|={row['grad_norm']} | spread={row['E_spread_mH']} mH | "
               f"{row['walltime_s']}s -> {p}", flush=True)
 
