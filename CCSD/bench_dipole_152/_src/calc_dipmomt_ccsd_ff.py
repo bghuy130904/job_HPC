@@ -39,10 +39,24 @@ CCSD(T) (--levels ccsd ccsd_t, mặc định bật)
     thì phải nói rõ trong bài, và nên chạy thêm ít nhất một bộ (aug-cc-pCVTZ)
     để ước lượng phần còn thiếu tới CBS.
 
-    Mật độ (T) cùng hạng với mật độ CCSD (không có Z-vector), nên vẫn gọi là
-    mu_dm chứ không phải mu_unrel. Đo ở OH/6-31G: CCSD lệch -0.25 % so với
-    finite field, CCSD(T) chỉ lệch +0.07 % — Lambda có (T) hấp thụ thêm phần
-    hồi phục.
+    Mật độ (T) cùng hạng với mật độ CCSD, nên vẫn gọi là mu_dm chứ không phải
+    mu_unrel. Dấu hiệu phân biệt là KHỐI ov, không phải Z-vector — cả ba đều
+    thiếu Z-vector, đó chính là nghĩa của "unrelaxed". Đo ||d_ov|| ở OH/6-31G:
+
+        UMP2      0            (_gamma1_intermediates chỉ trả (doo, dvv);
+                                make_rdm1 điền khối ov bằng zeros)
+        CCSD      1.596e-02
+        CCSD(T)   1.456e-02
+
+    MP2 không có T1 nên không có gì sinh ra khối ov. CCSD có ||t1|| = 2.04e-02,
+    và T1/L1 chính là một phép quay orbital viết dưới dạng biên độ, nên một
+    phần hồi phục orbital đã nằm sẵn trong d_ov trước khi giải Z-vector. Mật độ
+    (T) thừa hưởng đúng cấu trúc đó.
+
+    Hệ quả khi ghép bảng: mu_dm_CCSD KHÔNG cùng hạng với mu_unrel_OBMP2 hay
+    mu_unrel_UMP2 (ov = 0). Đó là lý do CCSD chỉ lệch -0.25 % so với finite
+    field còn MP2 lệch tới 65 %. CCSD(T) lệch +0.07 % — Lambda có (T) hấp thụ
+    thêm phần hồi phục.
 
 CHI PHÍ: 7 lần CCSD mỗi chất (1 trường 0 + 6 trường). Tập SP trước đây mất
     59.9 giờ CPU -> ước tính ~420 giờ. Dùng --dipole dm để quay lại cách cũ.
@@ -326,10 +340,14 @@ def run_one(name, props, max_memory, mode, levels=("ccsd", "ccsd_t")):
             row["E_CCSD_T"] = float(mycc.e_tot + et)
 
         # ---------- mat do ----------
-        # CCSD mien phi (Lambda cua no duoc giai san). CCSD(T) thi KHONG:
-        # no can Lambda co so hang (T), dat gap hang chuc lan. Vi vay mat do
-        # (T) chi duoc tinh khi thuc su xin muc do do.
-        for T in tags:
+        # CCSD mien phi (Lambda cua no duoc giai san) -> luon tinh.
+        # CCSD(T) thi KHONG: no can Lambda co so hang (T), dat gap hang chuc
+        # lan. Vi vay mat do (T) chi tinh khi --dipole dm, tuc khi mat do CHINH
+        # LA cai dang duoc hoi. O --dipole ff thi cot cua CCSD(T) la mu_ff, va
+        # bo qua Lambda-(T) hoan toan -- day la cach re nhat de co mot gia tri
+        # tham chieu CCSD(T) that su (-dE/dF).
+        dm_tags = [T for T in tags if T == "CCSD" or mode == "dm"]
+        for T in dm_tags:
             if T == "CCSD":
                 dip_dm, occ = ccsd_density(mol, mycc)
                 row["lambda_conv_CCSD"] = True

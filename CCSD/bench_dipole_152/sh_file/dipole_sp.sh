@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=ccsd_dp_dm
+#SBATCH --job-name=ccsd_dp
 #SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/dipmomt_dm_%A_%a_%N.out
 #SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/dipmomt_dm_%A_%a_%N.err
 #SBATCH --partition=normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
+#SBATCH --cpus-per-task=13
 #SBATCH --threads-per-core=1
 #SBATCH --mem=30G                     ### DM chi 1 lan CCSD/chat thay vi 7 -> 35G la thua
 #SBATCH --time=48:00:00               ### FF mat 15.2 h o chat nang nhat (PPO) -> DM ~2 h
@@ -13,7 +13,7 @@
 
 CODE="/home/giahuy/Code/job/CCSD/bench_dipole_152/_src/calc_dipmomt_ccsd_ff.py"
 INPUT="/home/giahuy/Code/job/CCSD/bench_dipole_152/geometry/sp_inputs.json"
-OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/sp_dm"
+OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/sp"
 
 mkdir -p /data/giahuy/Result/CCSD/dipole_moments/_output
 mkdir -p /data/giahuy/Result/CCSD/dipole_moments/_error
@@ -30,7 +30,7 @@ source /home/giahuy/.venv/bin/activate
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
-export PYSCF_MAX_MEMORY=$(( SLURM_MEM_PER_NODE * 75 / 100 ))
+export PYSCF_MAX_MEMORY=$(( SLURM_MEM_PER_NODE * 90 / 100 ))
 echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY} MB"
 
 start=$(date +%s)
