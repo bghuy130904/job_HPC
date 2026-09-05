@@ -7,7 +7,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=13
 #SBATCH --threads-per-core=1
-#SBATCH --mem=30G                     ### DM chi 1 lan CCSD/chat thay vi 7 -> 35G la thua
+#SBATCH --mem=35G                     ### DM chi 1 lan CCSD/chat thay vi 7 -> 35G la thua
 #SBATCH --time=48:00:00               ### FF mat 15.2 h o chat nang nhat (PPO) -> DM ~2 h
 #SBATCH --array=0-70%20                ### 160 GB duoc chia tren c3 / 24G = 6 task dong thoi
 
@@ -37,7 +37,7 @@ start=$(date +%s)
 
 # --dipole dm: bo han nhanh finite field, chi chay 1 lan CCSD + solve_lambda.
 # Cac cot mu_ff / ff_curv / diff_pct se de trong; ket qua nam o cot mu_dm.
-python "$CODE" --input "$INPUT" --outdir "$OUTDIR" --dipole dm \
+python "$CODE" --input "$INPUT" --outdir "$OUTDIR" --dipole dm --levels ccsd\
     | grep -E "^\[|MERGE|so chiem|sym_break"
 
 
