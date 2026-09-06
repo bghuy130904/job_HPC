@@ -7,7 +7,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=13
 #SBATCH --threads-per-core=1
-#SBATCH --mem=35G                     ### DM chi 1 lan CCSD/chat thay vi 7 -> 35G la thua
+#SBATCH --mem=50G                     ### DM chi 1 lan CCSD/chat thay vi 7 -> 35G la thua
 #SBATCH --time=48:00:00               ### FF mat 15.2 h o chat nang nhat (PPO) -> DM ~2 h
 #SBATCH --array=0-70%20                ### 160 GB duoc chia tren c3 / 24G = 6 task dong thoi
 
@@ -30,7 +30,7 @@ source /home/giahuy/.venv/bin/activate
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
-export PYSCF_MAX_MEMORY=$(( SLURM_MEM_PER_NODE * 90 / 100 ))
+export PYSCF_MAX_MEMORY=$(( SLURM_MEM_PER_NODE * 95 / 100 ))
 echo "SLURM cap ${SLURM_MEM_PER_NODE} MB -> PYSCF_MAX_MEMORY=${PYSCF_MAX_MEMORY} MB"
 
 start=$(date +%s)
