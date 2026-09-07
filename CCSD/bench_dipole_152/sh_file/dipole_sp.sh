@@ -24,6 +24,8 @@ export JOB_SCRATCH_PATH="/scratch/$SLURM_JOB_ID"
 export TMPDIR="$JOB_SCRATCH_PATH"
 mkdir -p "$TMPDIR"
 
+trap 'rm -rf "$JOB_SCRATCH_PATH"' EXIT
+
 module load python3.9
 source /home/giahuy/.venv/bin/activate
 
