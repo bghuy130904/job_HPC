@@ -9,7 +9,7 @@
 #SBATCH --threads-per-core=1
 #SBATCH --mem=50G                     ### DM chi 1 lan CCSD/chat thay vi 7 -> 35G la thua
 #SBATCH --time=48:00:00               ### FF mat 15.2 h o chat nang nhat (PPO) -> DM ~2 h
-#SBATCH --array=0-70%20                ### 160 GB duoc chia tren c3 / 24G = 6 task dong thoi
+#SBATCH --array=0-70%3                ### 160 GB duoc chia tren c3 / 24G = 6 task dong thoi
 
 CODE="/home/giahuy/Code/job/CCSD/bench_dipole_152/_src/calc_dipmomt_ccsd_ff.py"
 INPUT="/home/giahuy/Code/job/CCSD/bench_dipole_152/geometry/sp_inputs.json"
