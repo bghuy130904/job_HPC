@@ -328,16 +328,23 @@ def run_one(name, props, max_memory, mode, levels=("ccsd", "ccsd_t")):
             flags.append(f"multi_state(spread={spread:.2f}mH)")
 
         # ---------- truong 0 ----------
-        # CHI transform tich phan MOT lan. mycc.kernel() khong truyen eris se
-        # tu ao2mo() ben trong ROI VUT DI ngay khi ham return; goi them
-        # mycc.ao2mo() sau do la transform LAN HAI tren cung mot du lieu. O
-        # aug-cc-pCVQZ (nao ~300-400+) moi lan transform ghi tam ra $TMPDIR
-        # (=/scratch) co the toi hang chuc GB -> gap doi so lan ghi la nguyen
-        # nhan chinh lam day scratch qua 6 diem truong.
+        # CHI transform tich phan MOT lan cho ca run nay -- day la diem quan
+        # trong nhat de tranh day /scratch, quan trong hon ca --mem/--time.
+        #   mycc.kernel() KHONG truyen eris se tu ao2mo() ben trong roi VUT DI
+        #   ngay khi ham return.
+        #   mycc.make_rdm1() -> neu Lambda chua giai (l1 is None, LUON dung o
+        #   lan goi dau) -> solve_lambda() -> NEU KHONG duoc truyen eris se tu
+        #   ao2mo() LAN NUA. Comment ban truoc noi "Lambda da giai san" la SAI:
+        #   kernel() chi giai t1/t2, khong dong cham Lambda.
+        # Nen KHONG truyen eris o ca hai buoc se ra HAI lan transform day du.
+        # O aug-cc-pCVQZ (nao ~300-400+) mot lan transform ghi tam xuong
+        # $TMPDIR (=/scratch) toi hang chuc GB; day chinh la nguyen nhan
+        # OSError "No space left on device" o job thu 18, KHONG phai --mem
+        # hay so task dong thoi.
         mycc = cc.CCSD(mf)
         mycc.verbose = 0
-        eris = mycc.ao2mo() if want_t else None   # transform DUY NHAT
-        mycc.kernel(eris=eris)                     # tai su dung, khong transform lai
+        eris = mycc.ao2mo()            # transform DUY NHAT cho ca kernel + Lambda
+        mycc.kernel(eris=eris)
         if not mycc.converged:
             flags.append("CCSD_not_converged")
         row["E_CCSD"] = float(mycc.e_tot)
@@ -356,8 +363,12 @@ def run_one(name, props, max_memory, mode, levels=("ccsd", "ccsd_t")):
         dm_tags = [T for T in tags if T == "CCSD" or mode == "dm"]
         for T in dm_tags:
             if T == "CCSD":
+                # Truyen eris da co san -> solve_lambda() ben trong make_rdm1()
+                # tai su dung, KHONG transform them lan nua.
+                if mycc.l1 is None:
+                    mycc.solve_lambda(eris=eris)
+                row["lambda_conv_CCSD"] = bool(mycc.converged_lambda)
                 dip_dm, occ = ccsd_density(mol, mycc)
-                row["lambda_conv_CCSD"] = True
             else:
                 conv, l1, l2 = _t_lambda(mycc, eris)
                 row["lambda_conv_CCSD_T"] = conv
