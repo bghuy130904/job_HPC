@@ -224,15 +224,16 @@ def _ccsd_in_field(mol, hcore, dm0, want_t):
 
     Tra ve (dict {tag: E}, |grad| SCF, CCSD hoi tu?).
     (T) o day chi la NANG LUONG -- khong can Lambda, nen re: mot lan (T) moi
-    diem truong."""
+    diem truong. Transform tich phan CHI mot lan/diem truong (xem chu thich
+    o zero-field trong run_one ve ly do)."""
     mf = _scf_once(mol, hcore=hcore, dm0=dm0)
     g = grad_norm(mf)
     mycc = cc.CCSD(mf)
     mycc.verbose = 0
-    mycc.kernel()
+    eris = mycc.ao2mo() if want_t else None
+    mycc.kernel(eris=eris)
     e = {"CCSD": float(mycc.e_tot)}
     if want_t:
-        eris = mycc.ao2mo()
         e["CCSD_T"] = float(mycc.e_tot + uccsd_t.kernel(mycc, eris, mycc.t1,
                                                         mycc.t2, verbose=0))
     return e, g, bool(mycc.converged)
@@ -327,14 +328,20 @@ def run_one(name, props, max_memory, mode, levels=("ccsd", "ccsd_t")):
             flags.append(f"multi_state(spread={spread:.2f}mH)")
 
         # ---------- truong 0 ----------
+        # CHI transform tich phan MOT lan. mycc.kernel() khong truyen eris se
+        # tu ao2mo() ben trong ROI VUT DI ngay khi ham return; goi them
+        # mycc.ao2mo() sau do la transform LAN HAI tren cung mot du lieu. O
+        # aug-cc-pCVQZ (nao ~300-400+) moi lan transform ghi tam ra $TMPDIR
+        # (=/scratch) co the toi hang chuc GB -> gap doi so lan ghi la nguyen
+        # nhan chinh lam day scratch qua 6 diem truong.
         mycc = cc.CCSD(mf)
         mycc.verbose = 0
-        mycc.kernel()
+        eris = mycc.ao2mo() if want_t else None   # transform DUY NHAT
+        mycc.kernel(eris=eris)                     # tai su dung, khong transform lai
         if not mycc.converged:
             flags.append("CCSD_not_converged")
         row["E_CCSD"] = float(mycc.e_tot)
 
-        eris = mycc.ao2mo() if want_t else None
         if want_t:
             et = uccsd_t.kernel(mycc, eris, mycc.t1, mycc.t2, verbose=0)
             row["E_CCSD_T"] = float(mycc.e_tot + et)
@@ -387,7 +394,7 @@ def run_one(name, props, max_memory, mode, levels=("ccsd", "ccsd_t")):
                 row[f"mu_ff_{T}"] = ref
                 row[f"mux_ff_{T}"], row[f"muy_ff_{T}"], row[f"muz_ff_{T}"] = \
                     map(float, dips[T])
-                if ref > 1e-8:
+                if ref > 1e-8 and row[f"mu_dm_{T}"] is not None:
                     row[f"d_dm_ff_{T}"] = 100.0 * (row[f"mu_dm_{T}"] - ref) / ref
 
         if flags:
