@@ -39,7 +39,7 @@ PYTHONPATH= python -u "$INPUT_FILE" \
     --xc-env b3lyp \
     --threads "$SLURM_CPUS_PER_TASK" \
     --max-memory 45000 \
-    --output "${OUTPUT_DIR%/}/obdh_hexanol_cl_new.json" \
+    --output "${OUTPUT_DIR%/}/mp2_hexanol_cl_new.json" \
     > "$OUTPUT_FILE"
 
 status=$?

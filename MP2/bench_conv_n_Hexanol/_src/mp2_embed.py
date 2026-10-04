@@ -30,7 +30,7 @@ def _cl_truncate(mf_emb, mol, atom_indices_A, n_shells, mu_threshold=1e5, verbos
         C_vir_eff = C_s[:, idx_vir_eff]
 
         C_vir_CL = concentric_localization(C_vir_eff, S_mat, F_s, active_aos,
-                                           n_shells=n_shells, verbose=verbose)
+                                           n_shells=n_shells, verbose=verbose, _debug=True)
         F_vir = C_vir_CL.T.conj() @ F_s @ C_vir_CL
         evals_vir, evecs_vir = la.eigh(F_vir)
         C_vir_CL = C_vir_CL @ evecs_vir
