@@ -39,7 +39,7 @@ AverageMUE gồm cả neutral trong Table 3.
    Hai phía mang điện tích đều được thử; mật độ trung bình A/B là guess deloc với spectator trung hòa. Fractional occupations chỉ ở guess, không dùng smearing/fractional occupation cho nghiệm cuối. Guess chỉ là điểm bắt đầu, không là nhãn nghiệm.
 3. SCF không hội tụ được thử level shift tạm thời, sau đó bỏ shift và hội tụ lại, rồi thử Newton nếu cần; nghiệm bất ổn được theo hướng orbital của
    stability analysis, tối đa số vòng cấu hình. Hessian ổn định không thay thế hội tụ. Kiểm tra cả dE và orbital gradient (mặc định 1e-9 Eh và 1e-6); recompute gradient cuối thay vì chỉ tin cờ converged.
-4. Warm guesses chạy Newton trực tiếp từ orbitals/occupations; việc chỉ đọc lại density rồi diagonalize Aufbau có thể làm mất basin và đưa lỗ điện tích lên He. Theo hướng instability cũng dùng Newton với orbital rotation trả về. Không dừng sớm vì hai energy gần nhau. Chỉ deduplicate density đã hội tụ/ổn định
+4. Helper UHF/matched UKS (và PBE0 khi chạy PBE) vẫn được tạo khi chỉ yêu cầu DFT để thăm dò basin; chỉ các method yêu cầu được báo cáo. Warm guesses chạy Newton trực tiếp từ orbitals/occupations; việc chỉ đọc lại density rồi diagonalize Aufbau có thể làm mất basin và đưa lỗ điện tích lên He. Theo hướng instability cũng dùng Newton với orbital rotation trả về. Không dừng sớm vì hai energy gần nhau. Chỉ deduplicate density đã hội tụ/ổn định
    trong cùng nguồn, bằng Frobenius norm ở AO trực giao (mặc định 1e-5).
 5. Với OBDH/OBMP2, chạy tiếp **mọi** mật độ SCF khác nhau hợp lệ từ cả hai nguồn.
    Orbital UKS được đưa vào UHF carrier **không chạy lại UHF SCF**, để giữ basin
@@ -53,7 +53,10 @@ AverageMUE gồm cả neutral trong Table 3.
 
 Bảng `init_comparison` ghi HF-init và UKS-init riêng. Bảng `candidates` giữ tất cả
 SCF/OB candidates, lỗi, trạng thái convergence và spin. Không dùng fallback từ
-nghiệm OB chưa hội tụ. Nhãn cuối tính từ orbital density `ob.gamma`, không từ seed.
+nghiệm OB chưa hội tụ. Nếu một warm determinant hợp lệ có energy SCF thấp hơn mọi
+nghiệm hội tụ của source >1e-6 Eh, reference search được đánh dấu chưa hoàn tất:
+không dùng reference cao hơn để báo cáo DFT/UMP2/DH reaction energy. Các stable
+seeds vẫn được giữ để OB thăm dò. Đây là energy witness, không phải spin/charge gate. Nhãn cuối tính từ orbital density `ob.gamma`, không từ seed.
 
 Spin populations và charges là Mulliken **tổng theo fragment**. Nhãn mô tả dùng
 f = |sA−sB|/(|sA|+|sB|): f≥0.8 → loc; f≤0.2 → deloc; còn lại mixed.
@@ -133,3 +136,14 @@ không được chấp nhận tự động; nếu ORCA version có wording khác
 log thực và thêm fixture test. DH chọn reference SCF energy thấp nhất rồi lấy DH energy.
 Không có bộ ORCA executable trong environment kiểm chứng này, nên chưa chạy end-to-end ORCA.
 Một mình PBE gần Table 1 không chứng nhận mọi functional DH hay lựa chọn basin đều đúng.
+
+## Kết quả kiểm chứng đi kèm
+
+Xem `results/sie4x4/validation/review_2026_10_06/README.md`, các CSV init/candidates,
+config hashes và hai JSON kiểm chứng operator/warm orbitals. Đây là subset nhiều
+basis, không phải full SIE4x4 MUE. Có thể chạy kiểm tra vật lý warm guess riêng:
+
+```bash
+python benchmarks/sie4x4/tests/check_orbital_warm.py
+```
+

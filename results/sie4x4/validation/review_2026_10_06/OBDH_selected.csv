@@ -1,0 +1,46 @@
+system,point,method,init_source,energy,valid,label,s2,guess,basis,grid,validation_group
+H2_plus_He,R_1.0,obdh,all,-3.4953453305568982,True,deloc,0.7500000000023358,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.0,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-3.4953453305568982,True,deloc,0.7500000000023358,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.0,obdh,uhf,-3.4953453303606365,True,deloc,0.7500000000023369,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.25,obdh,all,-3.488726067952489,True,deloc,0.7500000000032876,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.25,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-3.4887260670651625,True,deloc,0.750000000003287,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.25,obdh,uhf,-3.488726067952489,True,deloc,0.7500000000032876,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.5,obdh,all,-3.474456571980493,True,deloc,0.7500000000044569,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.5,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-3.47445657103422,True,deloc,0.7500000000044554,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.5,obdh,uhf,-3.474456571980493,True,deloc,0.7500000000044569,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.75,obdh,all,-3.4603228296873594,True,deloc,0.7500000000057092,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.75,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-3.4603228286917225,True,deloc,0.7500000000057128,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.75,obdh,uhf,-3.4603228296873594,True,deloc,0.7500000000057092,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,dissociation_limit,obdh,all,-3.435715111252952,True,deloc,0.7500000000079804,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,dissociation_limit,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-3.435715111252952,True,deloc,0.7500000000079804,minao,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,dissociation_limit,obdh,uhf,-3.435715110807882,True,deloc,0.7500000000079703,atom,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.0,obdh,all,-4.988963509719024,True,deloc,0.7545488535001532,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.0,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-4.988963509433576,True,deloc,0.7545488463076778,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.0,obdh,uhf,-4.988963509719024,True,deloc,0.7545488535001532,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.25,obdh,all,-4.978796604346754,True,deloc,0.7559582893415294,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.25,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-4.978796604346754,True,deloc,0.7559582893415294,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.25,obdh,uhf,-4.9787966037356455,True,deloc,0.7559582993074262,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.5,obdh,all,-4.961002255197842,True,deloc,0.7565130628857227,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.5,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-4.961002254612986,True,deloc,0.7565130486059992,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.5,obdh,uhf,-4.961002255197842,True,deloc,0.7565130628857227,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.75,obdh,all,-4.9482787556751004,True,deloc,0.7564239508887481,atom,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.75,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-4.948278754461433,True,deloc,0.7564239395452563,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.75,obdh,uhf,-4.9482787556751004,True,deloc,0.7564239508887481,atom,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,dissociation_limit,obdh,all,-4.950927875184712,True,deloc,0.7548295163935613,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,dissociation_limit,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-4.950927875184712,True,deloc,0.7548295163935613,minao,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,dissociation_limit,obdh,uhf,,False,,,,cc-pVDZ,3,core_and_strict_SCF
+NH3_2_plus,R_1.0,obdh,all,-112.6446926288522,True,deloc,0.7557668139764271,minao,cc-pVDZ,3,core_and_strict_SCF
+NH3_2_plus,R_1.0,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-112.64469262422185,True,deloc,0.7557670601001227,minao,cc-pVDZ,3,core_and_strict_SCF
+NH3_2_plus,R_1.0,obdh,uhf,-112.6446926288522,True,deloc,0.7557668139764271,minao,cc-pVDZ,3,core_and_strict_SCF
+H2O_2_plus,R_1.0,obdh,all,-150.12826106303055,True,deloc,0.7515739951476981,fragment_average,STO-3G,2,water_small
+H2O_2_plus,R_1.0,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-150.12826106303055,True,deloc,0.7515739951476981,fragment_average,STO-3G,2,water_small
+H2O_2_plus,R_1.0,obdh,uhf,-150.12826106266965,True,deloc,0.7515739927287566,fragment_average,STO-3G,2,water_small
+H2O_2_plus,dissociation_limit,obdh,all,-150.08004422695,True,deloc,0.7514306142190712,atom,STO-3G,2,water_small
+H2O_2_plus,dissociation_limit,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-150.080044226928,True,deloc,0.7514304682486905,fragment_average,STO-3G,2,water_small
+H2O_2_plus,dissociation_limit,obdh,uhf,-150.08004422695,True,deloc,0.7514306142190712,atom,STO-3G,2,water_small
+NH3_2_plus,R_1.0,obdh,all,-111.12046209490832,True,deloc,0.7526069027361277,fragment_average,STO-3G,2,ammonia_small
+NH3_2_plus,R_1.0,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-111.12046209393506,True,deloc,0.7526068550369214,fragment_average,STO-3G,2,ammonia_small
+NH3_2_plus,R_1.0,obdh,uhf,-111.12046209490832,True,deloc,0.7526069027361277,fragment_average,STO-3G,2,ammonia_small
+NH3_2_plus,dissociation_limit,obdh,all,-111.05866233239622,True,mixed,0.7527327988212775,localized_A,STO-3G,2,ammonia_small
+NH3_2_plus,dissociation_limit,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-111.05866233070697,True,mixed,0.7527328394235475,fragment_average,STO-3G,2,ammonia_small
+NH3_2_plus,dissociation_limit,obdh,uhf,-111.05866233239622,True,mixed,0.7527327988212775,localized_A,STO-3G,2,ammonia_small

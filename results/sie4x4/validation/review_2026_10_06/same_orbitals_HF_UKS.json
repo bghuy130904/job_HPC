@@ -1,0 +1,11 @@
+{
+  "UKS_object_energy": -4.988968900349563,
+  "UHF_carrier_same_orbitals_energy": -4.988968900349563,
+  "energy_delta": 0.0,
+  "density_delta": 0.0,
+  "converged": [
+    true,
+    true
+  ],
+  "seed_remains_UKS": true
+}

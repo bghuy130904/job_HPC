@@ -1,0 +1,113 @@
+{
+  "core_and_strict_SCF": {
+    "input": "/workspace/scratch/770ce535a34f/sie_review/benchmarks/sie4x4/inputs/input.json",
+    "outdir": "/tmp/sie_cvdz",
+    "basis": "cc-pVDZ",
+    "grid": 3,
+    "scf_aux": "def2-universal-jkfit",
+    "methods": [
+      "uhf",
+      "ump2",
+      "pbe",
+      "pbe0",
+      "dh_matched",
+      "obdh",
+      "obmp2"
+    ],
+    "systems": [
+      "H2_plus_He",
+      "He2_plus",
+      "NH3_2_plus",
+      "H2O_2_plus"
+    ],
+    "points": [
+      "R_1.0",
+      "R_1.25",
+      "R_1.5",
+      "R_1.75",
+      "dissociation_limit"
+    ],
+    "alpha": [
+      0.53,
+      0.39
+    ],
+    "scf_tol": 1e-09,
+    "scf_grad_tol": 1e-06,
+    "scf_cycles": 80,
+    "stability_cycles": 6,
+    "ob_cycles": 200,
+    "ob_tol": 1e-06,
+    "density_tol": 1e-05,
+    "threads": 2,
+    "pyscf_version": "2.14.0",
+    "driver_sha256": "dc73ab9aada7ae46b94fda4b463d283fc1ffabfaa658d23db6b29976737270bf",
+    "input_sha256": "315e69a5432a3e0085ac4ca2c67f1c34193cfa13cfeb003c4209427ac46aa103",
+    "pycmf_core_sha256": "6951bc5fe653776a32f90ac6862ed1506c5c9d0d8d9b1609a76362eeb6ca73be"
+  },
+  "water_small": {
+    "input": "/workspace/scratch/770ce535a34f/sie_review/benchmarks/sie4x4/inputs/input.json",
+    "outdir": "/tmp/sie_water_small",
+    "basis": "sto-3g",
+    "grid": 2,
+    "scf_aux": "def2-universal-jkfit",
+    "methods": [
+      "obdh"
+    ],
+    "systems": [
+      "H2O_2_plus"
+    ],
+    "points": [
+      "R_1.0",
+      "dissociation_limit"
+    ],
+    "alpha": [
+      0.53,
+      0.39
+    ],
+    "scf_tol": 1e-09,
+    "scf_grad_tol": 1e-06,
+    "scf_cycles": 60,
+    "stability_cycles": 6,
+    "ob_cycles": 150,
+    "ob_tol": 1e-06,
+    "density_tol": 1e-05,
+    "threads": 1,
+    "pyscf_version": "2.14.0",
+    "driver_sha256": "09a8916983610ea445488d9090e7b855762ae5ddb13555b126244753964c29ed",
+    "input_sha256": "315e69a5432a3e0085ac4ca2c67f1c34193cfa13cfeb003c4209427ac46aa103",
+    "pycmf_core_sha256": "6951bc5fe653776a32f90ac6862ed1506c5c9d0d8d9b1609a76362eeb6ca73be"
+  },
+  "ammonia_small": {
+    "input": "/workspace/scratch/770ce535a34f/sie_review/benchmarks/sie4x4/inputs/input.json",
+    "outdir": "/tmp/sie_ammonia_small",
+    "basis": "sto-3g",
+    "grid": 2,
+    "scf_aux": "def2-universal-jkfit",
+    "methods": [
+      "obdh"
+    ],
+    "systems": [
+      "NH3_2_plus"
+    ],
+    "points": [
+      "R_1.0",
+      "dissociation_limit"
+    ],
+    "alpha": [
+      0.53,
+      0.39
+    ],
+    "scf_tol": 1e-09,
+    "scf_grad_tol": 1e-06,
+    "scf_cycles": 60,
+    "stability_cycles": 6,
+    "ob_cycles": 150,
+    "ob_tol": 1e-06,
+    "density_tol": 1e-05,
+    "threads": 1,
+    "pyscf_version": "2.14.0",
+    "driver_sha256": "215d753948ac35aa387bdfc449a2a5206b959fd33ed1150d9c15d7c590e617d9",
+    "input_sha256": "315e69a5432a3e0085ac4ca2c67f1c34193cfa13cfeb003c4209427ac46aa103",
+    "pycmf_core_sha256": "6951bc5fe653776a32f90ac6862ed1506c5c9d0d8d9b1609a76362eeb6ca73be"
+  }
+}

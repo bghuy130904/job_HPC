@@ -1,0 +1,8 @@
+method,init_source,n_valid,n_requested,complete_SIE4x4,MUE_16,MUE_available
+obdh,"0.53*HF + 0.47*B88, 0.61*LYP",1,1,False,,26.98147246231146
+obdh,all,1,1,False,,26.98147246231146
+obdh,uhf,1,1,False,,26.981472290252405
+pbe,all,1,1,False,,55.39264367674798
+pbe,pbe,1,1,False,,55.39264367674798
+pbe0,all,1,1,False,,40.82198158886072
+pbe0,pbe0,1,1,False,,40.82198158886072

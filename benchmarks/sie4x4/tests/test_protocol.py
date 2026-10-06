@@ -99,6 +99,13 @@ ORCA TERMINATED NORMALLY
             path.write_text(text.replace('Stability Analysis indicates a STABLE HF/KS wave function',''))
             self.assertFalse(parse(path)['valid'])
 
+    def test_known_lower_determinant_prevents_false_ground_reference(self):
+        high=argparse.Namespace(e_tot=-3.)
+        low=argparse.Namespace(e_tot=-3.5)
+        self.assertFalse(sie.reference_search_complete([('a',high,None)],[-3.4]))
+        self.assertTrue(sie.reference_search_complete([('a',high,None),('b',low,None)],[-3.4]))
+        self.assertFalse(sie.reference_search_complete([],[-3.4]))
+
     def test_partial_statistics_are_not_full_benchmark(self):
         cfg=argparse.Namespace(methods=['uhf'],systems=['He2_plus'],points=['R_1.0',sie.DL])
         cases=[dict(system='He2_plus',point=point,candidates=[dict(stage='uhf',source='uhf',energy=e,valid=True)])

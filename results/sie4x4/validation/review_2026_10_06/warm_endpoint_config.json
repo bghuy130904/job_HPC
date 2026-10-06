@@ -1,0 +1,35 @@
+{
+  "input": "/workspace/scratch/770ce535a34f/sie_review/benchmarks/sie4x4/inputs/input.json",
+  "outdir": "/tmp/sie_final_endpoint",
+  "basis": "cc-pVDZ",
+  "grid": 3,
+  "scf_aux": "def2-universal-jkfit",
+  "methods": [
+    "pbe",
+    "pbe0",
+    "obdh"
+  ],
+  "systems": [
+    "H2_plus_He"
+  ],
+  "points": [
+    "R_1.0",
+    "dissociation_limit"
+  ],
+  "alpha": [
+    0.53,
+    0.39
+  ],
+  "scf_tol": 1e-09,
+  "scf_grad_tol": 1e-06,
+  "scf_cycles": 60,
+  "stability_cycles": 6,
+  "ob_cycles": 150,
+  "ob_tol": 1e-06,
+  "density_tol": 1e-05,
+  "threads": 1,
+  "pyscf_version": "2.14.0",
+  "driver_sha256": "6af918e5203a10c0c900b822ef779cac5c5c7e0b3553835867c7b91e95b72fdd",
+  "input_sha256": "315e69a5432a3e0085ac4ca2c67f1c34193cfa13cfeb003c4209427ac46aa103",
+  "pycmf_core_sha256": "6951bc5fe653776a32f90ac6862ed1506c5c9d0d8d9b1609a76362eeb6ca73be"
+}

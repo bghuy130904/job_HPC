@@ -1,0 +1,16 @@
+system,point,method,paired_valid,HF_energy,UKS_energy,HF_label,UKS_label,delta_E_Eh,basis,grid,validation_group
+H2_plus_He,R_1.0,obdh,True,-3.4953453303606365,-3.4953453305568982,deloc,deloc,-1.962616735795564e-10,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.25,obdh,True,-3.488726067952489,-3.4887260670651625,deloc,deloc,8.873266565956327e-10,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.5,obdh,True,-3.474456571980493,-3.47445657103422,deloc,deloc,9.462732819542907e-10,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,R_1.75,obdh,True,-3.4603228296873594,-3.4603228286917225,deloc,deloc,9.95636906253594e-10,cc-pVDZ,3,core_and_strict_SCF
+H2_plus_He,dissociation_limit,obdh,True,-3.435715110807882,-3.435715111252952,deloc,deloc,-4.4506975882541155e-10,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.0,obdh,True,-4.988963509719024,-4.988963509433576,deloc,deloc,2.8544722141532475e-10,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.25,obdh,True,-4.9787966037356455,-4.978796604346754,deloc,deloc,-6.111084971394121e-10,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.5,obdh,True,-4.961002255197842,-4.961002254612986,deloc,deloc,5.848557194099158e-10,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,R_1.75,obdh,True,-4.9482787556751004,-4.948278754461433,deloc,deloc,1.2136673888107907e-09,cc-pVDZ,3,core_and_strict_SCF
+He2_plus,dissociation_limit,obdh,False,,-4.950927875184712,,deloc,,cc-pVDZ,3,core_and_strict_SCF
+NH3_2_plus,R_1.0,obdh,True,-112.6446926288522,-112.64469262422185,deloc,deloc,4.6303796352731305e-09,cc-pVDZ,3,core_and_strict_SCF
+H2O_2_plus,R_1.0,obdh,True,-150.12826106266965,-150.12826106303055,deloc,deloc,-3.608988663472701e-10,STO-3G,2,water_small
+H2O_2_plus,dissociation_limit,obdh,True,-150.08004422695,-150.080044226928,deloc,deloc,2.1998403099132705e-11,STO-3G,2,water_small
+NH3_2_plus,R_1.0,obdh,True,-111.12046209490832,-111.12046209393506,deloc,deloc,9.732588068800394e-10,STO-3G,2,ammonia_small
+NH3_2_plus,dissociation_limit,obdh,True,-111.05866233239622,-111.05866233070697,mixed,mixed,1.6892727217054924e-09,STO-3G,2,ammonia_small

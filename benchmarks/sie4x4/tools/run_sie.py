@@ -174,6 +174,11 @@ def seed_pool(mol, atoms, groups, source, cfg, rows, warm_seeds=None):
                 dm = local(int(name.endswith('B')))
             else:
                 dm = mf.get_init_guess(key=name)
+            if name in warm_seeds:
+                # This warm density is a converged integer-occupation determinant.
+                # A lower energy on it is a witness that a higher stationary state
+                # cannot be reported as the lowest SCF reference.
+                row['witness_energy'] = float(mf.energy_tot(dm=dm))
             mf, valid, stable = stabilize(mf, dm, cfg,
                                               (warm_seeds[name]['coeff'],warm_seeds[name]['occ']) if name in warm_seeds else None)
             final_dm = np.asarray(mf.make_rdm1())
@@ -221,6 +226,11 @@ def ob_candidate(mol, groups, seed, source, method, cfg):
         row['exception'] = str(exc)
         traceback.print_exc()
     return row
+
+
+def reference_search_complete(pool, witness_energies):
+    finite=[e for e in witness_energies if e is not None and np.isfinite(e)]
+    return bool(pool and (not finite or min(item[1].e_tot for item in pool) <= min(finite)+1e-6))
 
 
 def select(rows):
@@ -359,10 +369,11 @@ def main(default_methods=None):
             mol = build(atoms,cfg.basis)
             rows = []
             sources = set()
-            if set(cfg.methods)&{'uhf','ump2','obdh','obmp2'}: sources.add('uhf')
-            if set(cfg.methods)&{'dh_matched','obdh','obmp2'}: sources.add(xc)
+            if set(cfg.methods)&{'uhf','ump2','obdh','obmp2','pbe','pbe0'}: sources.add('uhf')
+            if set(cfg.methods)&{'dh_matched','obdh','obmp2','pbe','pbe0'}: sources.add(xc)
             for method in ['pbe','pbe0']:
                 if method in cfg.methods: sources.add(method)
+            if 'pbe' in cfg.methods: sources.add('pbe0')
             with Path(str(stem)+'.log').open('w') as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
                 mol.stdout = log
                 warm_seeds = {}
@@ -373,11 +384,14 @@ def main(default_methods=None):
                         warm_seeds[f'from_{source}_{name}'] = dict(dm=seed_dm.copy(),
                                                                  coeff=np.asarray(seed_mf.mo_coeff).copy(),
                                                                  occ=np.asarray(seed_mf.mo_occ).copy())
+                    witnesses = [r.get('witness_energy') for r in rows if r['stage']=='scf' and r['source']==source]
+                    search_complete = reference_search_complete(pool,witnesses)
                     scf_method = 'uhf' if source=='uhf' else source
                     if scf_method in cfg.methods:
                         for name,mf,dm in pool:
                             rows.append(dict(stage=scf_method,source=source,guess=name,energy=float(mf.e_tot),
-                                             converged=True,stable=True,valid=True,**diagnostics(mol,dm,groups,mf.mo_coeff,mf.mo_occ)))
+                                             converged=True,stable=True,valid=search_complete,
+                                             ground_search_incomplete=not search_complete,**diagnostics(mol,dm,groups,mf.mo_coeff,mf.mo_occ)))
                     # UMP2/DH are evaluated on the LOWEST stable SCF reference per source.
                     # They are not orbital variational methods: don't rank SCF basins by PT2 energy.
                     if pool and ((source=='uhf' and 'ump2' in cfg.methods) or (source==xc and 'dh_matched' in cfg.methods)):
@@ -394,7 +408,8 @@ def main(default_methods=None):
                             post.kernel()
                             row.update(energy=float(mf.e_tot+(1 if method=='ump2' else cfg.alpha[1])*post.e_corr),
                                        converged=True,stable=True,**diagnostics(mol,dm,groups,mf.mo_coeff,mf.mo_occ))
-                            row['valid'] = row['density_valid'] and np.isfinite(row['energy'])
+                            row['ground_search_incomplete'] = not search_complete
+                            row['valid'] = search_complete and row['density_valid'] and np.isfinite(row['energy'])
                         except Exception as exc:
                             row['exception'] = str(exc)
                             traceback.print_exc()

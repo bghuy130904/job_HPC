@@ -1,0 +1,15 @@
+system,point,method,init_source,energy,valid,label,s2,guess
+H2_plus_He,R_1.0,pbe,all,-3.4917929136870653,True,deloc,0.7500000006648313,fragment_average
+H2_plus_He,R_1.0,pbe,pbe,-3.4917929136870653,True,deloc,0.7500000006648313,fragment_average
+H2_plus_He,R_1.0,pbe0,all,-3.494969974084555,True,deloc,0.7500000002530139,fragment_average
+H2_plus_He,R_1.0,pbe0,pbe0,-3.494969974084555,True,deloc,0.7500000002530139,fragment_average
+H2_plus_He,R_1.0,obdh,all,-3.495345330556906,True,deloc,0.7500000000023395,fragment_average
+H2_plus_He,R_1.0,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-3.495345330556906,True,deloc,0.7500000000023395,fragment_average
+H2_plus_He,R_1.0,obdh,uhf,-3.4953453303606294,True,deloc,0.7500000000023362,fragment_average
+H2_plus_He,dissociation_limit,pbe,all,-3.4774387777009905,True,deloc,0.7500000006420565,"from_0.53*HF + 0.47*B88, 0.61*LYP_minao"
+H2_plus_He,dissociation_limit,pbe,pbe,-3.4774387777009905,True,deloc,0.7500000006420565,"from_0.53*HF + 0.47*B88, 0.61*LYP_minao"
+H2_plus_He,dissociation_limit,pbe0,all,-3.457396010047849,True,deloc,0.7500000002089404,"from_0.53*HF + 0.47*B88, 0.61*LYP_minao"
+H2_plus_He,dissociation_limit,pbe0,pbe0,-3.457396010047849,True,deloc,0.7500000002089404,"from_0.53*HF + 0.47*B88, 0.61*LYP_minao"
+H2_plus_He,dissociation_limit,obdh,all,-3.4357151112784545,True,deloc,0.7500000000079804,minao
+H2_plus_He,dissociation_limit,obdh,"0.53*HF + 0.47*B88, 0.61*LYP",-3.4357151112784545,True,deloc,0.7500000000079804,minao
+H2_plus_He,dissociation_limit,obdh,uhf,-3.435715110807984,True,deloc,0.7500000000079705,fragment_average
