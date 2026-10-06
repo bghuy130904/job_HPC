@@ -30,6 +30,20 @@ một lượt production duy nhất từ cùng revision driver. `OBDH_candidates
 mọi kết quả OB, kể cả chưa hội tụ, iteration diagnostics, populations và s2;
 `OBDH_selected.csv` chỉ chọn các nghiệm hợp lệ. Không tự đổi nhãn mixed thành loc.
 
+## Phạm vi sửa: chỉ pipeline benchmark
+
+Driver hiện tại chạy với pyCMF upstream `af3614dcd89b78f68b2d5912ddd33a2d277f631a`
+chưa sửa source. Chuyển UKS sang HF carrier ngay trong driver, không chạy thêm
+SCF; đặt grid tạm thời trong lúc kernel chạy và đọc iteration diagnostics từ log.
+`benchmark_adapter_unmodified_pycmf.json` ghi phép tính OBDH thật trên He₂⁺,
+cc-pVDZ/grid 2: cùng orbital từ UKS và HF carrier cho cùng energy, seed được giữ
+nguyên và grid mặc định được phục hồi.
+
+Các bảng 15 case và `same_orbitals_HF_UKS.json` bên dưới là dữ liệu lịch sử của
+lượt kiểm chứng trước dùng bản pyCMF có patch trong môi trường thử nghiệm. Không
+gán lại provenance của các bảng đó cho driver hiện tại. Patch đã được bỏ khỏi
+job_HPC; không cần áp dụng patch cho cài đặt pyCMF.
+
 ## Cùng orbital phải cho cùng OBDH
 
 `same_orbitals_HF_UKS.json`: He₂⁺, cc-pVDZ, grid 2, α=(0.53,0.39), MP2-fit cc-pVDZ-RI.
@@ -72,14 +86,14 @@ bằng unit tests; config hash giữ đúng revision thực dùng cho lượt t�
 
 ## Kiểm tra đã chạy và giới hạn
 
-- 10 unit/regression tests đạt: HF carrier không có xc, seed được giữ nguyên,
+- 11 unit/regression tests đạt với pyCMF upstream chưa sửa: HF carrier không có xc, seed được giữ nguyên,
   full fragment AO block, chia fragment ở mọi hình học, doublet electron counts,
   DL distances/He placement, không dùng S2 gate, không chấp nhận SCF chưa hội tụ
   chỉ vì Hessian ổn định, ORCA final stability/normal termination, statistics subset,
   warm orbitals không bị đổi thành density restart, và không báo cáo một reference cao hơn khi đã có lower-energy determinant witness.
 - Kiểm tra SCF thật bằng `tests/check_orbital_warm.py` đã đạt;
   `public_warm_regression.json` giữ energy, gradient, s2 và fragment populations cuối.
-- Patch installer: dry-run, áp dụng đúng hash, chạy lại idempotent đã kiểm tra.
+- Không còn patch installer hoặc yêu cầu sửa source pyCMF; adapter nằm trong driver benchmark.
 - Sinh 700 ORCA inputs (100 case × 7 files) trong output của run; Bash syntax
   được kiểm tra. Chưa chạy ORCA executable nên chưa có end-to-end ORCA validation.
 - OB convergence là dE + effective Fia theo solver hiện có; chưa có true OB

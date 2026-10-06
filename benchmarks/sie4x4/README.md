@@ -71,24 +71,22 @@ B2PLYP chuẩn. B2PLYP có (0.53,0.27): có thể chạy một outdir riêng v�
 
 ## Cài và chạy
 
-Bản vá pyCMF dựa trên upstream `af3614dcd89b78f68b2d5912ddd33a2d277f631a`.
-Không ghi được trực tiếp lên repo pyCMF từ kết nối hiện tại; diff và installer
-được lưu trong `patches/` và `tools/patch_pycmf.py`. Installer kiểm tra hash,
-dry-run trước, giữ `.pre-sie-fix`, và không áp dụng mù lên phiên bản khác.
+Pipeline dùng API hiện có của pyCMF; không yêu cầu sửa source thư viện.
+`hf_orbital_carrier()` trong driver sao chép orbitals/occupations/energies sang UHF
+mà không chạy lại SCF. Grid của UKS được tạo bên trong solver được cấu hình tạm
+qua `lib.temporary_env(Grids, level=...)` cho từng lần gọi đồng bộ rồi khôi phục.
+Diagnostics vòng lặp được đọc từ log của solver. Không thay đổi phương trình,
+convergence hoặc các benchmark khác dùng pyCMF.
+Đã kiểm tra với upstream `af3614dcd89b78f68b2d5912ddd33a2d277f631a` nguyên bản.
 
 Từ root `job_HPC`, với environment có PySCF, NumPy, SciPy, pandas, openpyxl, pyCMF:
 
 ```bash
-python benchmarks/sie4x4/tools/patch_pycmf.py
 python -m unittest discover -s benchmarks/sie4x4/tests -v
 python benchmarks/sie4x4/tools/run_sie.py \
   --outdir results/sie4x4/validation/avdz-grid4 \
   --basis aug-cc-pVDZ --grid 4 --threads 4
 ```
-
-Nếu dùng checkout pyCMF editable: `python benchmarks/sie4x4/tools/patch_pycmf.py --root /path/to/pyCMF`.
-Nếu phiên bản cài đặt khác: cài checkout đúng commit trên trong environment nghiên cứu
-riêng rồi áp dụng patch; script sẽ báo lỗi thay vì sửa phiên bản không biết.
 
 Thử nhanh trước khi full benchmark:
 

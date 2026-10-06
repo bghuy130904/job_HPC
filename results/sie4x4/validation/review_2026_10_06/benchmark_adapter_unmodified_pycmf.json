@@ -1,0 +1,77 @@
+{
+  "pycmf_revision": "af3614dcd89b78f68b2d5912ddd33a2d277f631a",
+  "pycmf_source_modified": false,
+  "basis": "cc-pvdz",
+  "grid": 2,
+  "geometry_angstrom": "He 0 0 0; He 0 0 1.07420374",
+  "rows": [
+    {
+      "stage": "obdh",
+      "source": "uks",
+      "guess": "same_orbitals",
+      "valid": true,
+      "energy": -4.988968900349563,
+      "converged": true,
+      "stability": "not_tested_for_OB",
+      "s2": 0.7545490717250198,
+      "fragment_spin": [
+        0.5000000000000052,
+        0.4999999999999971
+      ],
+      "fragment_charge": [
+        0.5000000000000018,
+        0.4999999999999927
+      ],
+      "label": "deloc",
+      "localization_fraction": 8.104628079763625e-15,
+      "electrons": [
+        2.0000000000000044,
+        1.0000000000000018
+      ],
+      "density_valid": true,
+      "iteration": {
+        "cycle": 5,
+        "delta_energy": 3.37214701e-11,
+        "effective_fia": 4.89608763e-07,
+        "density_rms": 1.49476991e-06
+      },
+      "seed_label": "deloc"
+    },
+    {
+      "stage": "obdh",
+      "source": "hf_same_orbitals",
+      "guess": "same_orbitals",
+      "valid": true,
+      "energy": -4.988968900349563,
+      "converged": true,
+      "stability": "not_tested_for_OB",
+      "s2": 0.7545490717250198,
+      "fragment_spin": [
+        0.5000000000000052,
+        0.4999999999999971
+      ],
+      "fragment_charge": [
+        0.5000000000000018,
+        0.4999999999999927
+      ],
+      "label": "deloc",
+      "localization_fraction": 8.104628079763625e-15,
+      "electrons": [
+        2.0000000000000044,
+        1.0000000000000018
+      ],
+      "density_valid": true,
+      "iteration": {
+        "cycle": 5,
+        "delta_energy": 3.37214701e-11,
+        "effective_fia": 4.89608763e-07,
+        "density_rms": 1.49476991e-06
+      },
+      "seed_label": "deloc"
+    }
+  ],
+  "energy_delta": 0.0,
+  "seed_unchanged": true,
+  "grid_default_restored": true,
+  "unit_tests_passed": 11
+}

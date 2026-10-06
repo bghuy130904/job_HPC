@@ -6,6 +6,7 @@ import argparse
 import contextlib
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 import traceback
@@ -198,29 +199,65 @@ def seed_pool(mol, atoms, groups, source, cfg, rows, warm_seeds=None):
     return pool
 
 
+def hf_orbital_carrier(mf):
+    """Use HF operators on the supplied orbitals without another SCF run."""
+    carrier = (mf.to_hf() if hasattr(mf, 'xc') else mf).copy()
+    for attr in ['mo_coeff', 'mo_occ', 'mo_energy']:
+        setattr(carrier, attr, tuple(np.array(x, copy=True) for x in getattr(mf, attr)))
+    return carrier
+
+
+class IterationLog:
+    """Forward solver output and extract diagnostics without changing pyCMF."""
+    pattern = re.compile(r'Iter (\d+):.*?dE=([^, ]+), df_ia=([^, ]+), dRMS=([^, ]+)')
+
+    def __init__(self, stream):
+        self.stream = stream
+        self.last_iteration = None
+
+    def write(self, value):
+        self.stream.write(value)
+        match = self.pattern.search(value)
+        if match:
+            cycle, de, fia, rms = match.groups()
+            self.last_iteration = dict(cycle=int(cycle)+1, delta_energy=float(de),
+                                       effective_fia=float(fia), density_rms=float(rms))
+        return len(value)
+
+    def flush(self):
+        self.stream.flush()
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+
+
 def ob_candidate(mol, groups, seed, source, method, cfg):
     from pycmf.OBDH import OBDH_CL, OBMP2_CL
     name, mf, _ = seed
     row = dict(stage=method, source=source, guess=name, valid=False)
     try:
         # Keep UKS orbital basin, replace operator with UHF WITHOUT SCF relaxation.
-        carrier = (mf.to_hf() if hasattr(mf, "xc") else mf).copy()
+        carrier = hf_orbital_carrier(mf)
         ob = (OBDH_CL if method == 'obdh' else OBMP2_CL)(carrier)
-        if not hasattr(ob, 'dft_grid_level'):
-            raise RuntimeError('Install pyCMF fix/sie-initialization before running OB')
         ob.with_df = df.DF(mol, auxbasis=df.make_auxbasis(mol, mp2fit=True))
         ob.alphaa = tuple(cfg.alpha)
-        ob.dft_grid_level = cfg.grid
+        # Optional compatibility with versions exposing this setting.
+        if hasattr(ob, 'dft_grid_level'):
+            ob.dft_grid_level = cfg.grid
         ob.niter = cfg.ob_cycles
         ob.thresh = cfg.ob_tol
         ob.use_embed = False
         ob.use_cl = False
         ob.verbose = 0
-        energy = float(ob.kernel())
+        output = IterationLog(sys.stdout)
+        # Upstream creates a fresh UKS internally. Set its grid default only for
+        # this synchronous call; restore it afterwards. No library source edits.
+        with lib.temporary_env(dft.gen_grid.Grids, level=cfg.grid), contextlib.redirect_stdout(output):
+            energy = float(ob.kernel())
         row.update(energy=energy, converged=bool(ob.converged), stability='not_tested_for_OB',
                    **diagnostics(mol,ob.gamma,groups,ob.mo_coeff,ob.mo_occ))
         row['valid'] = bool(ob.converged and row['density_valid'] and np.isfinite(energy))
-        row['iteration'] = ob.last_iteration
+        row['iteration'] = getattr(ob, 'last_iteration', None) or output.last_iteration
         row['seed_label'] = diagnostics(mol,seed[2],groups)['label']
     except Exception as exc:
         row['exception'] = str(exc)
