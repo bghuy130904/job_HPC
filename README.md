@@ -1,6 +1,6 @@
 # job_HPC — workspace by benchmark
 
-Organized from commit 822fd36915ff16abd392b9af3e16c99b1986dda9. This change organizes files only; it does not assess or change the numerical implementations.
+Organized from commit 822fd36915ff16abd392b9af3e16c99b1986dda9. The initial layout commit organized files only. The SIE4x4 follow-up also fixes its guess/selection protocol; see benchmarks/sie4x4/README.md.
 
 ## Find a benchmark
 
@@ -8,7 +8,7 @@ Organized from commit 822fd36915ff16abd392b9af3e16c99b1986dda9. This change orga
 | --- | --- | --- |
 | dipole_152 | ccsd, dft, obdh | inputs/sp_inputs.json, inputs/nsp_inputs.json; references/ref_sp.json and ref_nsp.json |
 | dipole_dissociation | ccsd, dft, obdh | inputs/dissociation_inputs.json; references/dissociation_reference.json |
-| sie4x4 | dft, obdh; ORCA scripts under tools and jobs/orca | inputs/input.json; inputs/orca_generated/ |
+| sie4x4 | dft, obdh; ORCA scripts under tools and jobs/orca | inputs/input.json; ORCA inputs generated per run |
 | mipc | mp2, obmp2, obdh, b2plyp, pbe0 | Geometries remain in the existing method scripts; extracting them is a separate code change |
 | hexanol_cl | mp2, obdh | inputs/input.xyz |
 | retinal | obmp2 | Existing scripts only |
@@ -33,10 +33,11 @@ Do not create a new calculation script when only basis, coefficients, method sel
 
 ## What moved
 
-FILE_MAP.csv maps every original tracked file to its current location. Identical copies were consolidated; differing input variants and result versions were preserved. ORCA generated inputs remain under their benchmark, with one generator and the two distinct collector versions given distinct names.
+FILE_MAP.csv records original file locations and consolidation. SIE ORCA input entries now point to runtime generation instead of checked-in derived files. Identical copies were consolidated; differing input variants and result versions were preserved. ORCA generated inputs remain under their benchmark, with one generator and the two distinct collector versions given distinct names.
 
 Earlier dipole geometries remain under archive/dipole_152/earlier_inputs rather than being silently substituted for the benchmark inputs. No scientific choice between different geometries was made.
 
 ## Running jobs after reorganization
 
 File contents are unchanged. Existing launcher and Python absolute paths still use the old HPC layout. This branch is an organized workspace, not a tested replacement for current HPC submissions. Update those paths in a separate launcher migration before submitting from this layout. No numerical benchmark was run for this organizational change.
+

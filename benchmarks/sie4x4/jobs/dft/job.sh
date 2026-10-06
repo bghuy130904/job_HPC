@@ -1,52 +1,23 @@
 #!/bin/bash
-
-#SBATCH --job-name=react_energy ### Job name
-#SBATCH --output=/data/giahuy/Result/DFT/SIE_DFT/_output/react_energy.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/DFT/SIE_DFT/_error/react_energy.err             ### Standard error file
-#SBATCH --partition=Bigmem            ### queue
-#SBATCH --nodes=1                     ### Number of nodes
-#SBATCH --ntasks=1                    ### Number of tasks per node
-#SBATCH --cpus-per-task=10            ### Number of CPU cores per task
-#SBATCH --mem-per-cpu=6000
-
-start=$(date +%s)
-# input-file/code trong đường dẫn /home
-INPUT_FILE="/home/giahuy/Code/job/DFT/bench_SIE_DFT/_src/calc_DFT.py"
-# Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/DFT/SIE_DFT/$SLURM_JOB_ID"
-mkdir -p $OUTPUT_DIR
-OUTPUT_FILE="$OUTPUT_DIR/react_energy.txt"
-
-# ====================================================================#
-# LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
-# ====================================================================#
-export JOB_SCRATCH_PATH="/scratch/$SLURM_JOB_ID"
+#SBATCH --job-name=SIE_dft
+#SBATCH --output=SIE_%x_%j.out
+#SBATCH --error=SIE_%x_%j.err
+#SBATCH --partition=Bigmem
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=60G
+set -euo pipefail
+# Submit from repository root; SLURM copies this script, so do not infer root from $0.
+REPO_ROOT="${REPO_ROOT:-${SLURM_SUBMIT_DIR:-$PWD}}"
+SIE_ROOT="$REPO_ROOT/benchmarks/sie4x4"
+OUTDIR="${OUTDIR:-$REPO_ROOT/results/sie4x4/dft/${SLURM_JOB_ID:-local}}"
+export JOB_SCRATCH_PATH="${JOB_SCRATCH_PATH:-/scratch/${USER}/sie-${SLURM_JOB_ID:-$$}}"
 export TMPDIR="$JOB_SCRATCH_PATH"
-# ====================================================================#
-
-#Load các Module như bình thường
-
-module load python3.9
-source /home/giahuy/venvs_py3_9/bin/activate
-
-export PYTHONPATH="~/venvs_py3_9/lib/python3.13/site-packages:$PYTHONPATH"
-export OMP_NUM_THREADS=10
-export MKL_NUM_THREADS=10
-export OPENBLAS_NUM_THREADS=10
-
-#Compile/run code
-python $INPUT_FILE > $OUTPUT_FILE
-
-echo "Job hoàn tất."
-echo "Output đã được ghi trực tiếp vào: $OUTPUT_FILE"
-
-#Ket thuc dem gio
-end=$(date +%s)
-
-runtime=$((end - start))
-
-hours=$((runtime / 3600))
-minutes=$(((runtime % 3600) / 60))
-seconds=$((runtime % 60))
-
-printf "Thời gian: %02d:%02d:%02d (giờ:phút:giây)\n" $hours $minutes $seconds
+mkdir -p "$TMPDIR" "$OUTDIR"
+# Activate your environment before sbatch, or provide VENV explicitly.
+if [ -n "${VENV:-}" ]; then source "$VENV/bin/activate"; fi
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+export MKL_NUM_THREADS="$OMP_NUM_THREADS"
+export OPENBLAS_NUM_THREADS="$OMP_NUM_THREADS"
+python "$SIE_ROOT/methods/dft/calc_DFT.py"   --outdir "$OUTDIR" --basis "${BASIS:-aug-cc-pVDZ}" --grid "${GRID:-4}"   --threads "$OMP_NUM_THREADS" "$@" > "$OUTDIR/driver.log" 2>&1
