@@ -5,4 +5,4 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 from run_sie import main
 if __name__ == '__main__':
-    sys.exit(main(['obdh', 'obmp2']))
+    sys.exit(main(['uhf', 'ump2', 'obdh', 'obmp2']))
