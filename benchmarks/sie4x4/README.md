@@ -97,17 +97,21 @@ python benchmarks/sie4x4/tools/run_sie.py \
   --systems He2_plus --points R_1.0 dissociation_limit
 ```
 
-SLURM: submit từ root repo; activate environment trước, hoặc đặt `VENV`.
-Không còn đường dẫn tuyệt đối phụ thuộc `/home/giahuy/Code/job/OBDH/...` cũ.
+SLURM: giữ cấu hình HPC gốc: module Python/ORCA, venv, partition, CPU/RAM,
+đường dẫn output/error dưới `/data/giahuy/Result`, scratch `/scratch/$SLURM_JOB_ID`
+và format script. Chỉ đường dẫn driver/input trong repo được đổi theo layout mới;
+lệnh Python thêm `--outdir`, `--threads` để gọi pipeline SIE. Các script ngoài SIE
+giữ nguyên nội dung như trước khi tổ chức thư mục; chưa migrate absolute paths của chúng.
 
 ```bash
 sbatch benchmarks/sie4x4/jobs/dft/job.sh
 sbatch benchmarks/sie4x4/jobs/obdh/job.sh
 ```
 
-Có thể đặt `BASIS`, `GRID`, `OUTDIR`, `REPO_ROOT`, `JOB_SCRATCH_PATH` qua environment.
+Truyền lựa chọn qua CLI, ví dụ `sbatch benchmarks/sie4x4/jobs/obdh/job.sh
+--basis cc-pVDZ --grid 3 --points R_1.0 dissociation_limit`.
 `--methods`, `--systems`, `--points`, `--alpha` và các tolerance được lưu trong config.
-Thread count theo `SLURM_CPUS_PER_TASK`. Bản DF mặc định dùng
+Thread count giữ theo cấu hình 10 threads trong launcher gốc. Bản DF mặc định dùng
 `def2-universal-jkfit` cho SCF và auxiliary MP2-fit tự chọn riêng cho OB/UMP2.
 
 Từng case có `.log` và `.json` checkpoint, rồi tổng hợp CSV + `SIE4x4.xlsx`.
@@ -120,7 +124,6 @@ subset; `common_statistics` dùng giao điểm hợp lệ giữa các method đ�
 ## ORCA là đối chứng tùy chọn
 
 ```bash
-export ORCA_DIR=/path/to/orca
 sbatch benchmarks/sie4x4/jobs/orca/job_SIE4x4_DH.sh
 ```
 
@@ -128,7 +131,7 @@ Generator sinh vào output của **từng run**: default và cả hai localized 
 cho mọi functional, bao gồm PBE; không giả định PBE chỉ có một basin. Không version
 hàng trăm input được sinh lặp từ cùng geometry. `AutoAux` dùng cho fit basis;
 kiểm tra độ nhạy DF nếu cần đối chiếu định lượng. Launcher copy orbital đọc vào
-đúng tên `merged.gbw` và giữ failed scratch. Collector yêu cầu SCF convergence,
+đúng tên `merged.gbw`; script gốc sao lưu scratch của run lỗi sang `_debug` trước khi dọn. Collector yêu cầu SCF convergence,
 normal termination và **verdict stability cuối** đã nhận diện. Unknown stability
 không được chấp nhận tự động; nếu ORCA version có wording khác, cập nhật parser theo
 log thực và thêm fixture test. DH chọn reference SCF energy thấp nhất rồi lấy DH energy.
