@@ -12,7 +12,7 @@
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
-INPUT_FILE="/home/giahuy/Code/job/MP2/bench_conv_n_Hexanol/_src/mp2.py"
+INPUT_FILE="/home/giahuy/Code/job/benchmarks/hexanol_cl/methods/mp2/mp2.py"
 # Ghi output trực tiếp ra /data
 OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/bench_conv_n_Hexanol/"
 mkdir -p $OUTPUT_DIR

@@ -27,7 +27,7 @@ export TMPDIR="$JOB_SCRATCH_PATH"
 #Load các Module như bình thường
 
 module load python3.9
-source /home/giahuy/venvs_py3_9/bin/activate
+source /home/giahuy/.venv/bin/activate
 
 export PYTHONPATH="~/venvs_py3_9/lib/python3.13/site-packages:$PYTHONPATH"
 export OMP_NUM_THREADS=10

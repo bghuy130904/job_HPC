@@ -12,7 +12,7 @@
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
-INPUT_FILE="/home/giahuy/Code/job/OBDH/bench_conv_n_Hexanol/_src/obdh.py"
+INPUT_FILE="/home/giahuy/Code/job/benchmarks/hexanol_cl/methods/obdh/obdh.py"
 # Ghi output trực tiếp ra /data
 OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/bench_conv_n_Hexanol/"
 mkdir -p $OUTPUT_DIR
@@ -34,7 +34,7 @@ export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 PYTHONPATH= python -u "$INPUT_FILE" \
-    --xyz "/home/giahuy/Code/job/OBDH/bench_conv_n_Hexanol/geometry/input.xyz" \
+    --xyz "/home/giahuy/Code/job/benchmarks/hexanol_cl/inputs/input.xyz" \
     --basis aug-cc-pvqz \
     --alpha 0.5 0.4 \
     --threads "$SLURM_CPUS_PER_TASK" \
