@@ -31,15 +31,15 @@ AverageMUE gồm cả neutral trong Table 3.
 
 ## Init guess và multiguess
 
-1. Từng nguồn UHF và UKS được thử `minao`, `atom`, `huckel`, localized A và B.
+1. Từng nguồn UHF và UKS được thử `fragment_average`, `minao`, `atom`, `huckel`, localized A và B. Thêm orbitals/occupations của nghiệm ổn định từ nguồn đã chạy trước làm warm guess (UHF trước, matched UKS, PBE0 rồi PBE).
    UKS ở đây là unrestricted KS với cùng hệ số trao đổi/tương quan của OBDH;
    không phải noncollinear GKS.
 2. Localized guesses lấy full density block của fragment, giữ cả các phần tử AO
    nối các nguyên tử khác nhau trong cùng NH₃/H₂O. Electron allocation tổng là doublet.
-   Hai phía mang điện tích đều được thử. Guess chỉ là điểm bắt đầu, không là nhãn nghiệm.
+   Hai phía mang điện tích đều được thử; mật độ trung bình A/B là guess deloc với spectator trung hòa. Fractional occupations chỉ ở guess, không dùng smearing/fractional occupation cho nghiệm cuối. Guess chỉ là điểm bắt đầu, không là nhãn nghiệm.
 3. SCF không hội tụ được thử level shift tạm thời, sau đó bỏ shift và hội tụ lại, rồi thử Newton nếu cần; nghiệm bất ổn được theo hướng orbital của
    stability analysis, tối đa số vòng cấu hình. Hessian ổn định không thay thế hội tụ. Kiểm tra cả dE và orbital gradient (mặc định 1e-9 Eh và 1e-6); recompute gradient cuối thay vì chỉ tin cờ converged.
-4. Không dừng sớm vì hai energy gần nhau. Chỉ deduplicate density đã hội tụ/ổn định
+4. Warm guesses chạy Newton trực tiếp từ orbitals/occupations; việc chỉ đọc lại density rồi diagonalize Aufbau có thể làm mất basin và đưa lỗ điện tích lên He. Theo hướng instability cũng dùng Newton với orbital rotation trả về. Không dừng sớm vì hai energy gần nhau. Chỉ deduplicate density đã hội tụ/ổn định
    trong cùng nguồn, bằng Frobenius norm ở AO trực giao (mặc định 1e-5).
 5. Với OBDH/OBMP2, chạy tiếp **mọi** mật độ SCF khác nhau hợp lệ từ cả hai nguồn.
    Orbital UKS được đưa vào UHF carrier **không chạy lại UHF SCF**, để giữ basin

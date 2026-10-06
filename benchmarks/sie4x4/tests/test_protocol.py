@@ -21,6 +21,20 @@ class ProtocolTests(unittest.TestCase):
             for atoms in points.values():
                 self.assertEqual(sie.fragments(system,atoms),expected[system])
 
+    def test_paper_spin_and_dissociation_distances(self):
+        data=json.loads((sie.HERE/'inputs/input.json').read_text())
+        expected={'H2_plus_He':10.5727436,'He2_plus':10.7420374,'NH3_2_plus':15.,'H2O_2_plus':15.}
+        for system,points in data.items():
+            for point,atoms in points.items():
+                mol=sie.build(atoms,'sto-3g')
+                self.assertEqual(mol.nelec[0]-mol.nelec[1],1)
+                self.assertEqual(mol.charge,1)
+                xyz=np.array([a['coordinates'] for a in atoms])
+                if system=='H2_plus_He':
+                    self.assertAlmostEqual(np.min(np.linalg.norm(xyz[:2]-xyz[2],axis=1)),6.,places=6)
+                if point==sie.DL:
+                    self.assertAlmostEqual(np.linalg.norm(xyz[0]-xyz[1]),expected[system],places=6)
+
     def test_no_spin_gate_and_no_nonconverged_fallback(self):
         valid=dict(energy=-3.,valid=True,s2=1.2)
         failed=dict(energy=-4.,valid=False,s2=.75)
@@ -36,6 +50,21 @@ class ProtocolTests(unittest.TestCase):
             def stability(self,**kw): raise AssertionError('Nonconverged SCF cannot be accepted')
         _,valid,stable=sie.stabilize(FailedSCF(),None,argparse.Namespace(stability_cycles=2))
         self.assertFalse(valid);self.assertFalse(stable)
+
+    def test_warm_guess_optimizes_orbitals_without_aufbau_density_restart(self):
+        coeff=np.array([[[1.]],[[1.]]]);occ=np.array([[1.],[0.]])
+        class StableSCF:
+            converged=True
+            def newton(self): return self
+            def kernel(self,**kw):
+                self.kw=kw
+            def stability(self,**kw): return coeff,None,True,None
+        mf=StableSCF()
+        mf,valid,_=sie.stabilize(mf,None,argparse.Namespace(stability_cycles=1),(coeff,occ))
+        self.assertTrue(valid)
+        self.assertNotIn('dm0',mf.kw)
+        self.assertIs(mf.kw['mo_coeff'],coeff)
+        self.assertIs(mf.kw['mo_occ'],occ)
 
     def test_fragment_density_keeps_interatomic_blocks(self):
         atoms=[dict(element='H',coordinates=[0,0,0]),dict(element='H',coordinates=[0,0,.8]),

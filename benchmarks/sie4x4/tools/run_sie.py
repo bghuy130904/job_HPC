@@ -65,8 +65,14 @@ def factory(mol, source, cfg):
     return mf
 
 
-def stabilize(mf, dm, cfg):
-    mf.kernel(dm0=dm)
+def stabilize(mf, dm, cfg, orbital_guess=None):
+    if orbital_guess is not None:
+        # Warm orbital optimization retains the determinant basin; an Aufbau
+        # re-diagonalization of its density can instead move the hole onto He.
+        mf = mf.newton()
+        mf.kernel(mo_coeff=orbital_guess[0], mo_occ=orbital_guess[1])
+    else:
+        mf.kernel(dm0=dm)
     if not mf.converged:
         # Temporary level shift regularizes near-degenerate orbital updates.
         # Remove it and reconverge before stability/selection.
@@ -85,10 +91,10 @@ def stabilize(mf, dm, cfg):
                                              return_status=True)
         if stable or attempt == cfg.stability_cycles:
             break
-        mf.kernel(dm0=mf.make_rdm1(orbitals, mf.mo_occ))
-        if not mf.converged:
-            mf = mf.newton()
-            mf.kernel(dm0=mf.make_rdm1())
+        # Follow the unstable ORBITALS, retaining occupations. Re-diagonalizing
+        # their density with an Aufbau guess can jump to another, higher basin.
+        mf = mf.newton()
+        mf.kernel(mo_coeff=orbitals, mo_occ=mf.mo_occ)
     return mf, bool(mf.converged and stable), bool(stable)
 
 
@@ -145,16 +151,31 @@ def density_distance(a, b, overlap):
     return float(np.linalg.norm(np.asarray([half@x@half for x in (a-b)])))
 
 
-def seed_pool(mol, atoms, groups, source, cfg, rows):
+def seed_pool(mol, atoms, groups, source, cfg, rows, warm_seeds=None):
     pool = []
-    names = ['minao', 'atom', 'huckel', 'localized_A', 'localized_B']
+    warm_seeds = warm_seeds or {}
+    names = ['fragment_average', 'minao', 'atom', 'huckel', 'localized_A', 'localized_B'] + list(warm_seeds)
+    local_dms = {}
+    def local(side):
+        if side not in local_dms:
+            local_dms[side] = localized_density(mol, atoms, groups, side, source, cfg)
+        return local_dms[side]
     for name in names:
         row = dict(stage='scf', source=source, guess=name, valid=False)
         try:
             mf = factory(mol, source, cfg)
-            dm = (localized_density(mol, atoms, groups, int(name.endswith('B')), source, cfg)
-                  if name.startswith('localized') else mf.get_init_guess(key=name))
-            mf, valid, stable = stabilize(mf, dm, cfg)
+            if name in warm_seeds:
+                dm = warm_seeds[name]['dm']
+            elif name == 'fragment_average':
+                # Neutral spectator + half electron/hole on each equivalent fragment.
+                # Fractional starting DM only; final SCF occupations remain integer.
+                dm = .5 * (local(0) + local(1))
+            elif name.startswith('localized'):
+                dm = local(int(name.endswith('B')))
+            else:
+                dm = mf.get_init_guess(key=name)
+            mf, valid, stable = stabilize(mf, dm, cfg,
+                                              (warm_seeds[name]['coeff'],warm_seeds[name]['occ']) if name in warm_seeds else None)
             final_dm = np.asarray(mf.make_rdm1())
             row.update(energy=float(mf.e_tot), converged=bool(mf.converged),
                        orbital_gradient=float(np.linalg.norm(mf.get_grad(mf.mo_coeff,mf.mo_occ,mf.get_fock(dm=final_dm,level_shift_factor=0)))),
@@ -344,8 +365,14 @@ def main(default_methods=None):
                 if method in cfg.methods: sources.add(method)
             with Path(str(stem)+'.log').open('w') as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
                 mol.stdout = log
-                for source in sorted(sources):
-                    pool = seed_pool(mol,atoms,groups,source,cfg,rows)
+                warm_seeds = {}
+                source_order = sorted(sources,key=lambda source:(0 if source=='uhf' else 1 if source==xc else 2 if source=='pbe0' else 3,source))
+                for source in source_order:
+                    pool = seed_pool(mol,atoms,groups,source,cfg,rows,warm_seeds)
+                    for name,seed_mf,seed_dm in pool:
+                        warm_seeds[f'from_{source}_{name}'] = dict(dm=seed_dm.copy(),
+                                                                 coeff=np.asarray(seed_mf.mo_coeff).copy(),
+                                                                 occ=np.asarray(seed_mf.mo_occ).copy())
                     scf_method = 'uhf' if source=='uhf' else source
                     if scf_method in cfg.methods:
                         for name,mf,dm in pool:
