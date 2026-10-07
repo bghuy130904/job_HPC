@@ -364,7 +364,7 @@ def main(default_methods=None):
                    default=default_methods or ['uhf','ump2','pbe','pbe0','dh_matched','obdh','obmp2'])
     p.add_argument('--systems',nargs='+',choices=list(REF),default=list(REF))
     p.add_argument('--points',nargs='+',choices=POINTS+[DL],default=POINTS+[DL])
-    p.add_argument('--alpha',nargs=2,type=float,default=[.53,.39],metavar=('HF','PT2'))
+    p.add_argument('--alpha',nargs=2,type=float,default=[.5,.4],metavar=('HF','PT2'))
     p.add_argument('--scf-tol',type=float,default=1e-9)
     p.add_argument('--scf-grad-tol',type=float,default=1e-6)
     p.add_argument('--scf-cycles',type=int,default=200)
