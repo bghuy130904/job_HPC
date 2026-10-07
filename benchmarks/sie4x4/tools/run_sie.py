@@ -360,8 +360,8 @@ def main(default_methods=None):
     p.add_argument('--basis',default='aug-cc-pVDZ')
     p.add_argument('--grid',type=int,default=4)
     p.add_argument('--scf-aux',default='def2-universal-jkfit')
-    p.add_argument('--methods',nargs='+',choices=['uhf','ump2','pbe','pbe0','dh_matched','obdh','obmp2'],
-                   default=default_methods or ['uhf','ump2','pbe','pbe0','dh_matched','obdh','obmp2'])
+    p.add_argument('--methods',nargs='+',choices=['uhf','ump2','pbe','pbe0','b3lyp','dh_matched','obdh','obmp2'],
+                   default=default_methods or ['uhf','ump2','pbe','pbe0','b3lyp','dh_matched','obdh','obmp2'])
     p.add_argument('--systems',nargs='+',choices=list(REF),default=list(REF))
     p.add_argument('--points',nargs='+',choices=POINTS+[DL],default=POINTS+[DL])
     p.add_argument('--alpha',nargs=2,type=float,default=[.5,.4],metavar=('HF','PT2'))
@@ -406,9 +406,9 @@ def main(default_methods=None):
             mol = build(atoms,cfg.basis)
             rows = []
             sources = set()
-            if set(cfg.methods)&{'uhf','ump2','obdh','obmp2','pbe','pbe0'}: sources.add('uhf')
-            if set(cfg.methods)&{'dh_matched','obdh','obmp2','pbe','pbe0'}: sources.add(xc)
-            for method in ['pbe','pbe0']:
+            if set(cfg.methods)&{'uhf','ump2','obdh','obmp2','pbe','pbe0','b3lyp'}: sources.add('uhf')
+            if set(cfg.methods)&{'dh_matched','obdh','obmp2','pbe','pbe0','b3lyp'}: sources.add(xc)
+            for method in ['pbe','pbe0','b3lyp']:
                 if method in cfg.methods: sources.add(method)
             if 'pbe' in cfg.methods: sources.add('pbe0')
             with Path(str(stem)+'.log').open('w') as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
