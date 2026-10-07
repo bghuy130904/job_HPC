@@ -166,10 +166,21 @@ def main():
                            hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()
                            for m in (CL_embed, uobdh_embed)}
         for point in previous['cases'].values():
-            if point.get('status') == 'completed' and (
-                    point.get('pyscf_version') != pyscf.__version__ or
-                    point.get('dependency_sources') != current_sources):
-                parser.error('PySCF/embedding/CL code changed. Use a new --output.')
+            if point.get('status') != 'completed':
+                continue
+
+            if point.get('pyscf_version') != pyscf.__version__:
+                parser.error('PySCF version changed. Use a new --output.')
+
+            if point.get('dependency_sources') != current_sources:
+                print(
+                    'WARNING: embedding/CL source changed. '
+                    'Keeping previous results with their original source hashes; '
+                    'new points will record current source hashes.',
+                    file=sys.stderr,
+                    flush=True,
+                )
+                break
         meta = previous
         # Recover accepted energies from the sidecar, even if interrupted between writes.
         for label, shell in CASES:
