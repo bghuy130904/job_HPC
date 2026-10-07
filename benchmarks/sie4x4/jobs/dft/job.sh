@@ -34,7 +34,14 @@ export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 #Compile/run code
-python $INPUT_FILE --outdir "$OUTPUT_DIR" --threads "$OMP_NUM_THREADS" "$@" > $OUTPUT_FILE
+# Compile/run code
+python "$INPUT_FILE" \
+    --outdir "$OUTPUT_DIR" \
+    --threads "$OMP_NUM_THREADS" \
+    "$@" \
+    --methods pbe pbe0 b3lyp dh_matched \
+    --alpha 0.53 0.27 \
+    > "$OUTPUT_FILE" 2>&1
 
 echo "Job hoàn tất."
 echo "Output đã được ghi trực tiếp vào: $OUTPUT_FILE"
