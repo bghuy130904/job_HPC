@@ -40,7 +40,8 @@ PYTHONPATH= python -u "$INPUT_FILE" \
     --threads "$SLURM_CPUS_PER_TASK" \
     --max-memory 40000 \
     --output "${OUTPUT_DIR%/}/obdh_hexanol_cl_new.json" \
-    > "$OUTPUT_FILE"
+    --resume \
+    > "$OUTPUT_FILE" 2>&1
 
 status=$?
 if [ "$status" -ne 0 ]; then

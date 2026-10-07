@@ -36,12 +36,14 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 mkdir -p "$TMPDIR"
 
 PYTHONPATH= python -u "$INPUT_FILE" \
-    --worker \
-    "${OUTPUT_DIR%/}/mp2_hexanol_cl_new.meta.json" \
-    17 2 \
-    "${OUTPUT_DIR%/}/mp2_hexanol_cl_new_logs/point_2_17_retry.json" \
-    > "${OUTPUT_DIR%/}/mp2_hexanol_cl_new_logs/point_2_17_retry.log" \
-    2>&1
+    --xyz "/home/giahuy/Code/job/benchmarks/hexanol_cl/inputs/input.xyz" \
+    --basis aug-cc-pvqz \
+    --xc-env b3lyp \
+    --threads "$SLURM_CPUS_PER_TASK" \
+    --max-memory 45000 \
+    --output "${OUTPUT_DIR%/}/mp2_hexanol_cl_new.json" \
+    --resume \
+    > "$OUTPUT_FILE" 2>&1
 
 status=$?
 if [ "$status" -ne 0 ]; then
