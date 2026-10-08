@@ -176,8 +176,24 @@ def main():
         if not (output.exists() and meta_path.exists()):
             parser.error('Resume requires both output JSON and its .meta.json sidecar.')
         previous = json.loads(meta_path.read_text())
-        if previous['config'] != config:
-            parser.error('Resume settings differ from the saved configuration.')
+        old_config = previous['config']
+        changed = {
+            key for key in old_config.keys() | config.keys()
+            if old_config.get(key) != config.get(key)
+        }
+
+        if changed - {'module_sha256'}:
+            parser.error(
+                'Resume settings differ: ' + ', '.join(sorted(changed))
+            )
+
+        if 'module_sha256' in changed:
+            print(
+                'WARNING: mp2_embed.py changed; keeping completed points '
+                'and using the updated code for remaining points.',
+                file=sys.stderr,
+                flush=True,
+            )
         import pyscf
         from pycmf.OBDH import CL_embed, uobdh_embed
         current_sources = {str(Path(m.__file__).resolve()):
