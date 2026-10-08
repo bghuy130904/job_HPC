@@ -93,12 +93,12 @@ def run_point(mol, cfg):
     return rows
 
 
-def main():
+def main(default_methods=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input', type=Path, default=DEFAULT_INPUT)
     parser.add_argument('--outdir', type=Path, required=True)
     parser.add_argument('--methods', nargs='+', choices=METHODS,
-                        default=list(METHODS))
+                        default=default_methods or list(METHODS))
     parser.add_argument('--systems', nargs='+')
     parser.add_argument('--points', nargs='+')
     parser.add_argument('--basis', default='aug-cc-pVDZ')
