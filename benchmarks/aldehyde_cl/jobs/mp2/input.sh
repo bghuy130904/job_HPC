@@ -14,7 +14,7 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/aldehyde_cl/methods/mp2/mp2.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/charge_1_spin_1/"
+OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/dissociation_C45_1.2R0/"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/conv_C12_aldehyde.txt"
 
@@ -37,7 +37,7 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 mkdir -p "$TMPDIR"
 
 PYTHONPATH= python -u "$INPUT_FILE" \
-    --xyz "/home/giahuy/Code/job/benchmarks/aldehyde_cl/inputs/aldehyde.xyz" \
+    --xyz "/home/giahuy/Code/job/benchmarks/aldehyde_cl/inputs/aldehyde_C45_1.2R0.xyz" \
     --basis cc-pvdz \
     --charge 1 --spin 1\
     --xc-env b3lyp \
@@ -45,9 +45,10 @@ PYTHONPATH= python -u "$INPUT_FILE" \
     --max-memory 45000 \
     --output "${OUTPUT_DIR%/}/mp2_aldehyde_cl_new.json" \
     --shells 0 1\
-    --resume \
+    #--resume \
     "$@" \
-    >> "$OUTPUT_FILE" 2>&1
+    #>> "$OUTPUT_FILE" 2>&1
+    > "$OUTPUT_FILE" 2>&1
 
 status=$?
 if [ "$status" -ne 0 ]; then
