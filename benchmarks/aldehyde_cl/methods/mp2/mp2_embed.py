@@ -57,6 +57,7 @@ def run_embed_ump2(mpobj, mol, h_core_full, v_emb, gamma_init, num_active_orbs,
 
     mf_emb = scf.UHF(mol_emb).density_fit()
     mf_emb.verbose = mol.verbose
+    mf_emb.max_cycle = 200
     if mpobj.with_df is not None:
         mf_emb.with_df = mpobj.with_df
         mf_emb.with_df.mol = mol_emb        # tích phân DF chỉ phụ thuộc hình học + basis
