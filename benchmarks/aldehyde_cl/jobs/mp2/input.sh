@@ -45,8 +45,9 @@ PYTHONPATH= python -u "$INPUT_FILE" \
     --max-memory 45000 \
     --output "${OUTPUT_DIR%/}/mp2_aldehyde_cl_new.json" \
     --shells 0 1\
+    --resume \
     "$@" \
-    > "$OUTPUT_FILE" 2>&1
+    >> "$OUTPUT_FILE" 2>&1
 
 status=$?
 if [ "$status" -ne 0 ]; then
