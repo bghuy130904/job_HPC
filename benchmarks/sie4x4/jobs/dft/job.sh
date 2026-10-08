@@ -39,8 +39,8 @@ python "$INPUT_FILE" \
     --outdir "$OUTPUT_DIR" \
     --threads "$OMP_NUM_THREADS" \
     "$@" \
-    --methods pbe pbe0 b3lyp dh_matched \
-    --alpha 0.53 0.27 \
+    --methods dh_matched \
+    --alpha 0.5 0.4 \
     > "$OUTPUT_FILE" 2>&1
 
 echo "Job hoàn tất."
