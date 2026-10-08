@@ -35,7 +35,7 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 #Compile/run code
 python "$INPUT_FILE" \
-  --outdir "${OUTPUT_DIR%/}_recalc_obdh_(0.9,0.4)" \
+  --outdir "${OUTPUT_DIR%/}/recalc_obdh_(0.9,0.4)" \
   --threads "$OMP_NUM_THREADS" \
   "$@" \
   --methods obdh \
