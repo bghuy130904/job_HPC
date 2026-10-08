@@ -14,7 +14,7 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/aldehyde_cl/methods/obdh/obdh.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/bench_conv_C12_aldehyde/dissociation_C45_1.2R0/"
+OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/bench_conv_C12_aldehyde/dissociation_C45_1.4R0/"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/conv_C12_aldehyde.txt"
 
@@ -35,7 +35,7 @@ export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 PYTHONPATH= python -u "$INPUT_FILE" \
-    --xyz "/home/giahuy/Code/job/benchmarks/aldehyde_cl/inputs/aldehyde_C45_1.2R0.xyz" \
+    --xyz "/home/giahuy/Code/job/benchmarks/aldehyde_cl/inputs/aldehyde_C45_1.4R0.xyz" \
     --basis cc-pvdz \
     --charge 1 --spin 1\
     --alpha 0.5 0.4 \
