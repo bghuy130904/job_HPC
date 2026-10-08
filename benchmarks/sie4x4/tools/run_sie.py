@@ -256,7 +256,10 @@ def ob_candidate(mol, groups, seed, source, method, cfg):
             energy = float(ob.kernel())
         row.update(energy=energy, converged=bool(ob.converged), stability='not_tested_for_OB',
                    **diagnostics(mol,ob.gamma,groups,ob.mo_coeff,ob.mo_occ))
-        row['valid'] = bool(ob.converged and row['density_valid'] and np.isfinite(energy))
+        row['accepted_unconverged'] = bool(not ob.converged and getattr(cfg, 'accept_unconverged', False)
+                                           and row['density_valid'] and np.isfinite(energy))
+        row['valid'] = bool((ob.converged or row['accepted_unconverged'])
+                            and row['density_valid'] and np.isfinite(energy))
         row['iteration'] = getattr(ob, 'last_iteration', None) or output.last_iteration
         row['seed_label'] = diagnostics(mol,seed[2],groups)['label']
     except Exception as exc:
@@ -287,7 +290,9 @@ def summarize(cases, outdir, cfg):
                                      init_source=source, energy=chosen['energy'] if chosen else None,
                                      valid=chosen is not None, label=chosen.get('label') if chosen else None,
                                      s2=chosen.get('s2') if chosen else None,
-                                     guess=chosen.get('guess') if chosen else None))
+                                     guess=chosen.get('guess') if chosen else None,
+                                     converged=chosen.get('converged') if chosen else None,
+                                     accepted_unconverged=chosen.get('accepted_unconverged', False) if chosen else False))
     lookup = {(r['system'],r['point'],r['method'],r['init_source']):r for r in selected}
     errors = []
     for system in cfg.systems:
@@ -371,6 +376,8 @@ def main(default_methods=None):
     p.add_argument('--stability-cycles',type=int,default=6)
     p.add_argument('--ob-cycles',type=int,default=300)
     p.add_argument('--ob-tol',type=float,default=1e-6)
+    p.add_argument('--accept-unconverged',action='store_true',
+                   help='Include finite OB results with valid density even when unconverged; preserve convergence flags.')
     p.add_argument('--density-tol',type=float,default=1e-5)
     p.add_argument('--threads',type=int,default=1)
     cfg = p.parse_args()
