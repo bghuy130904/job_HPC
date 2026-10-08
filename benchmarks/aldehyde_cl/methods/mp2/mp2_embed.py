@@ -64,8 +64,12 @@ def run_embed_ump2(mpobj, mol, h_core_full, v_emb, gamma_init, num_active_orbs,
     mf_emb.max_memory = mpobj.max_memory
     original_get_veff = mf_emb.get_veff
 
-    def get_veff_emb(mol_, dm, dm_last=0, vhf_last=0):
-        veff = original_get_veff(mol_, dm, dm_last, vhf_last)
+    def get_veff_emb(mol=None, dm=None, dm_last=0, vhf_last=0):
+        if mol is None:
+            mol = mf_emb.mol
+        if dm is None:
+            dm = mf_emb.make_rdm1()
+        veff = original_get_veff(mol, np.asarray(dm), dm_last, vhf_last)
         return np.array([veff[0] + v_emb[0], veff[1] + v_emb[1]])
 
     mf_emb.get_veff = get_veff_emb
@@ -77,6 +81,11 @@ def run_embed_ump2(mpobj, mol, h_core_full, v_emb, gamma_init, num_active_orbs,
         print(f"   [Warning] UHF kernel failed: {e}. Trying without dm0...")
         mf_emb.kernel()
     print(f"   [Embedded UMP2] UHF-in-DFT Reference Energy: {mf_emb.e_tot:.8f}")
+
+    if not mf_emb.converged:
+        raise RuntimeError(
+            f"Embedded UHF did not converge after {mf_emb.max_cycle} cycles."
+        )
 
     if use_cl:
         print(f"   [Embedded UMP2] Performing Concentric Localization (n_shells={cl_n_shells})...")
