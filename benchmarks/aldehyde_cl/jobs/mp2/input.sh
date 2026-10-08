@@ -43,7 +43,7 @@ PYTHONPATH= python -u "$INPUT_FILE" \
     --threads "$SLURM_CPUS_PER_TASK" \
     --max-memory 45000 \
     --output "${OUTPUT_DIR%/}/mp2_aldehyde_cl_new.json" \
-    --shells 0 \
+    --shells 0 1\
     "$@" \
     > "$OUTPUT_FILE" 2>&1
 
