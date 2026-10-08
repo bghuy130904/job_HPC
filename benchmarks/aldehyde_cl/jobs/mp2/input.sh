@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=mp2_conv_C12_aldehyde ### Job name
-#SBATCH --output=aldehyde_mp2_%j.out
-#SBATCH --error=aldehyde_mp2_%j.err
+#SBATCH --output=/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/_output/aldehyde_mp2.out
+#SBATCH --error=/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/_error/aldehyde_mp2.err
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
