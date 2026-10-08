@@ -14,7 +14,7 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/aldehyde_cl/methods/mp2/mp2.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/"
+OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/charge_1_spin_1/"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/conv_C12_aldehyde.txt"
 

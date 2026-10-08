@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=obdh_conv_C12_aldehyde ### Job name
-#SBATCH --output=/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/_output/aldehyde_obdh.out
-#SBATCH --error=/data/giahuy/Result/MP2_in_DFT/bench_conv_C12_aldehyde/_error/aldehyde_obdh.err
+#SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/bench_conv_C12_aldehyde/_output/aldehyde_obdh.out
+#SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/bench_conv_C12_aldehyde/_error/aldehyde_obdh.err
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
@@ -14,7 +14,7 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/aldehyde_cl/methods/obdh/obdh.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/bench_conv_C12_aldehyde/"
+OUTPUT_DIR="/data/giahuy/Result/OBDH_in_DFT/bench_conv_C12_aldehyde/charge_1_spin_1/"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/conv_C12_aldehyde.txt"
 
