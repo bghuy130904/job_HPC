@@ -35,13 +35,13 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 #Compile/run code
 python "$INPUT_FILE" \
-  --outdir "${OUTPUT_DIR%/}_iter1" \
+  --outdir "${OUTPUT_DIR%/}_recalc_obdh_(0.9,0.4)" \
   --threads "$OMP_NUM_THREADS" \
   "$@" \
   --methods obdh \
-  --alpha 0.5 0.4 \
-  --ob-cycles 1 \
-  --accept-unconverged \
+  --alpha 0.9 0.4 \
+  # --ob-cycles 1 \
+  # --accept-unconverged \
   > "$OUTPUT_FILE" 2>&1
 
 echo "Job hoàn tất."
