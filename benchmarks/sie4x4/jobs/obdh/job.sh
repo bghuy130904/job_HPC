@@ -13,7 +13,7 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/sie4x4/methods/obdh/calc_OBDH.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/OBDH/SIE_DFT/$SLURM_JOB_ID"
+OUTPUT_DIR="/data/giahuy/Result/OBDH/SIE_DFT/"
 mkdir -p $OUTPUT_DIR
 OUTPUT_FILE="$OUTPUT_DIR/sie4x4.txt"
 
