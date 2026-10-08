@@ -35,12 +35,14 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 #Compile/run code
 python "$INPUT_FILE" \
-    --outdir "$OUTPUT_DIR" \
-    --threads "$OMP_NUM_THREADS" \
-    "$@" \
-    --methods uhf ump2 obdh obmp2 \
-    --alpha 0.5 0.4 \
-    > "$OUTPUT_FILE" 2>&1
+  --outdir "${OUTPUT_DIR%/}_iter1" \
+  --threads "$OMP_NUM_THREADS" \
+  "$@" \
+  --methods obdh \
+  --alpha 0.5 0.4 \
+  --ob-cycles 1 \
+  --accept-unconverged \
+  > "$OUTPUT_FILE" 2>&1
 
 echo "Job hoàn tất."
 echo "Output đã được ghi trực tiếp vào: $OUTPUT_FILE"
