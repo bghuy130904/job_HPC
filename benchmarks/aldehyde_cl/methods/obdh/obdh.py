@@ -56,8 +56,15 @@ def worker(config_path, count, shell, result_path):
         lib.num_threads(config['threads'])
         if not callable(CL_embed.concentric_localization):
             raise RuntimeError('CL implementation is unavailable.')
-        mol = gto.M(atom=config['atom'], unit='Angstrom', basis=config['basis'],
-                    charge=0, spin=0, verbose=4, max_memory=config['max_memory'])
+        mol = gto.M(
+            atom=config['atom'],
+            unit='Angstrom',
+            basis=config['basis'],
+            charge=config['charge'],
+            spin=config['spin'],
+            verbose=4,
+            max_memory=config['max_memory'],
+        )
         mf = scf.UHF(mol).density_fit(auxbasis=config['auxbasis'])
         mf.conv_tol = config['scf_tol']
         mf.max_cycle = config['scf_cycles']
@@ -104,6 +111,9 @@ def main():
     parser.add_argument('--xyz', type=Path, default=Path(__file__).resolve().parents[2] / 'inputs' / 'aldehyde.xyz')
     parser.add_argument('--output', type=Path, default=Path('obdh_aldehyde_cl_new.json'))
     parser.add_argument('--basis', required=True, help='Use the basis of your benchmark.')
+    parser.add_argument('--charge', type=int, default=0)
+    parser.add_argument('--spin', type=int, default=0,
+                        help='N_alpha - N_beta; doublet: 1, triplet: 2')
     parser.add_argument('--alpha', type=float, nargs=2, required=True, metavar=('AX', 'AC'))
     parser.add_argument('--xc-env', default=None, help='Default: AX*HF+(1-AX)*B88,(1-AC)*LYP. '
                         'Current upstream embedding also passes this XC to the subsystem solver.')

@@ -39,6 +39,7 @@ mkdir -p "$TMPDIR"
 PYTHONPATH= python -u "$INPUT_FILE" \
     --xyz "/home/giahuy/Code/job/benchmarks/aldehyde_cl/inputs/aldehyde.xyz" \
     --basis cc-pvdz \
+    --charge 1 --spin 1\
     --xc-env b3lyp \
     --threads "$SLURM_CPUS_PER_TASK" \
     --max-memory 45000 \

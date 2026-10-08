@@ -37,6 +37,7 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 PYTHONPATH= python -u "$INPUT_FILE" \
     --xyz "/home/giahuy/Code/job/benchmarks/aldehyde_cl/inputs/aldehyde.xyz" \
     --basis cc-pvdz \
+    --charge 1 --spin 1\
     --alpha 0.5 0.4 \
     --threads "$SLURM_CPUS_PER_TASK" \
     --max-memory 40000 \

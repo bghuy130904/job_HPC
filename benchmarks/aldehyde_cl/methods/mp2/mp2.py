@@ -74,8 +74,15 @@ def worker(config_path, count, shell, result_path):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         lib.num_threads(config['threads'])
-        mol = gto.M(atom=config['atom'], unit='Angstrom', basis=config['basis'],
-                    charge=0, spin=0, verbose=4, max_memory=config['max_memory'])
+        mol = gto.M(
+            atom=config['atom'],
+            unit='Angstrom',
+            basis=config['basis'],
+            charge=config['charge'],
+            spin=config['spin'],
+            verbose=4,
+            max_memory=config['max_memory'],
+        )
         mf = scf.UHF(mol).density_fit(auxbasis=config['auxbasis'])
         mf.conv_tol = config['scf_tol']
         mf.max_cycle = config['scf_cycles']
@@ -113,6 +120,9 @@ def main():
     parser.add_argument('--xyz', type=Path, default=Path(__file__).resolve().parents[2] / 'inputs' / 'aldehyde.xyz')
     parser.add_argument('--output', type=Path, default=Path('mp2_aldehyde_cl.json'))
     parser.add_argument('--basis', required=True, help='Use the basis of your benchmark.')
+    parser.add_argument('--charge', type=int, default=0)
+    parser.add_argument('--spin', type=int, default=0,
+                        help='N_alpha - N_beta; doublet: 1, triplet: 2')
     parser.add_argument('--module-file', type=Path, default=Path(__file__).with_name('mp2_embed.py'))
     parser.add_argument('--frozen', type=int, default=0)
     parser.add_argument('--xc-env', default='b3lyp')
