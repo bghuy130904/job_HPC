@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=obdh_sie4x4 ### Job name
+#SBATCH --job-name=obdh_0101_sie4x4 ### Job name
 #SBATCH --output=/data/giahuy/Result/OBDH/SIE_DFT/_output/sie4x4.out          ### Standard output file
 #SBATCH --error=/data/giahuy/Result/OBDH/SIE_DFT/_error/sie4x4.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
