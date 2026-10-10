@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=obdh_0205_sie4x4 ### Job name
+#SBATCH --job-name=obdh_0206_sie4x4 ### Job name
 #SBATCH --output=/data/giahuy/Result/OBDH/SIE_DFT/_output/sie4x4.out          ### Standard output file
 #SBATCH --error=/data/giahuy/Result/OBDH/SIE_DFT/_error/sie4x4.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
@@ -35,11 +35,11 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 #Compile/run code
 python "$INPUT_FILE" \
-  --outdir "${OUTPUT_DIR%/}/recalc_obdh_(0.2,0.5)" \
+  --outdir "${OUTPUT_DIR%/}/recalc_obdh_(0.2,0.6)" \
   --threads "$OMP_NUM_THREADS" \
   "$@" \
   --methods obdh \
-  --alpha 0.2 0.5 \
+  --alpha 0.2 0.6 \
   # --ob-cycles 1 \
   # --accept-unconverged \
   > "$OUTPUT_FILE" 2>&1
