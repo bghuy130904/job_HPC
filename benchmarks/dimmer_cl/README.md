@@ -17,6 +17,7 @@ the interaction energy blank rather than zero. All three systems are attempted.
 ```bash
 METHOD=obmp2 BASIS=sto-3g R='[0.95,1.0,1.05,1.25,2.0]' python benchmarks/dimmer_cl/methods/embedding/intE.py
 METHOD=mp2 BASIS=sto-3g R='1.0' python benchmarks/dimmer_cl/methods/embedding/intE.py
+mkdir -p /data/giahuy/Result/dimmer_cl/{_output,_error}
 sbatch --export=ALL,METHOD=obmp2 benchmarks/dimmer_cl/jobs/embedding/run.sh
 sbatch --export=ALL,METHOD=mp2 benchmarks/dimmer_cl/jobs/embedding/run.sh
 ```
@@ -28,8 +29,13 @@ Override `RUN_DIR`, `BASIS`, `MEMORY`, `R`, `INPUT_FILE`, `OBMP2_NITER` or `DIIS
 through environment variables. Default basis is def2-QZVPPD; OBMP2_NITER=1000.
 Do not reuse a run directory for a different calculation.
 
-The submission script uses the existing cluster Python/venv conventions.
-Set REPO_DIR when not submitting from the repository root, and VENV_PATH if needed.
+The submission script follows `hexanol_cl/jobs/obdh/input.sh`: code under
+`/home/giahuy/Code/job`, Python 3.9 and `/home/giahuy/.venv`, scratch under
+`/scratch/$SLURM_JOB_ID`, and results directly under `/data/giahuy/Result`.
+Slurm stdout/stderr go to `dimmer_cl/_output` and `dimmer_cl/_error`; create these
+directories before submitting, as shown above. Calculation tables and logs go to
+`/data/giahuy/Result/dimmer_cl/<method>/<Slurm-job-id>/`, with the driver output
+in `intE_dimmer_cl.txt`. Direct Python runs retain the repository results default.
 No HPC job is submitted by adding these files to the repository.
 
 Collect run tables with:
