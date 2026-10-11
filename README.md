@@ -12,7 +12,7 @@ Organized from commit 822fd36915ff16abd392b9af3e16c99b1986dda9. The initial layo
 | mipc | mp2, obmp2, obdh, b2plyp, pbe0 | Geometries remain in the existing method scripts; extracting them is a separate code change |
 | hexanol_cl | mp2, obdh | inputs/input.xyz |
 | retinal | obmp2 | Existing scripts only |
-| dimmer_cl | obmp2 (driver also supports METHOD=mp2) | inputs/aad.json; CP dimer scan, shared MP2 embedding |
+| dimmer_cl | obmp2 (also METHOD=mp2), ccsdt | inputs/aad.json; CP dimer scan, shared MP2 embedding |
 
 The obdh dipole driver already supports UHF, UMP2, OBMP2 and OBDH through method selection. Keep one driver instead of copying it into four folders. Method folder names describe existing drivers, not separate copies for every supported method.
 

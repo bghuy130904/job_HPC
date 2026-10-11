@@ -66,3 +66,12 @@ missing and the large interaction-energy offset needs checking. See
 
 `methods/obmp2/intE_changes_explained.md` sits beside `intE.py` and documents
 the original-to-current driver changes with code snippets and a complete diff.
+
+## Recalculate the CCSD(T) reference
+
+`methods/ccsdt/intE.py` performs full canonical CCSD(T) with selectable UHF/RHF reference with CP
+using the shared geometry and scan. `jobs/ccsdt/run.sh` follows the existing
+HPC submit format and writes to `/data/giahuy/Result/CCSDT/dimmer_cl/<job_id>/`.
+HF, CCSD correlation and (T) energies are logged separately for all three
+systems. See `methods/ccsdt/README.md` for commands, settings and convergence
+checks. Runs remain separate from the unverified uploaded reference.
