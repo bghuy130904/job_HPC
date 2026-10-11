@@ -17,7 +17,7 @@ the interaction energy blank rather than zero. All three systems are attempted.
 ```bash
 METHOD=obmp2 BASIS=sto-3g R='[0.95,1.0,1.05,1.25,2.0]' python benchmarks/dimmer_cl/methods/embedding/intE.py
 METHOD=mp2 BASIS=sto-3g R='1.0' python benchmarks/dimmer_cl/methods/embedding/intE.py
-mkdir -p /data/giahuy/Result/dimmer_cl/{_output,_error}
+mkdir -p /data/giahuy/Result/OBMP2_in_DFT/dimmer_cl/{_output,_error}
 sbatch --export=ALL,METHOD=obmp2 benchmarks/dimmer_cl/jobs/embedding/run.sh
 sbatch --export=ALL,METHOD=mp2 benchmarks/dimmer_cl/jobs/embedding/run.sh
 ```
@@ -34,8 +34,9 @@ The submission script follows `hexanol_cl/jobs/obdh/input.sh`: code under
 `/scratch/$SLURM_JOB_ID`, and results directly under `/data/giahuy/Result`.
 Slurm stdout/stderr go to `dimmer_cl/_output` and `dimmer_cl/_error`; create these
 directories before submitting, as shown above. Calculation tables and logs go to
-`/data/giahuy/Result/dimmer_cl/<method>/<Slurm-job-id>/`, with the driver output
-in `intE_dimmer_cl.txt`. Direct Python runs retain the repository results default.
+`/data/giahuy/Result/OBMP2_in_DFT/dimmer_cl/<method>/<Slurm-job-id>/`, with the driver output
+in `intE_dimmer_cl.txt`. Slurm stdout/stderr filenames are `intE.out` and `intE.err`,
+as in the latest user-edited job file. Direct Python runs retain the repository results default.
 No HPC job is submitted by adding these files to the repository.
 
 Collect run tables with:
@@ -54,3 +55,14 @@ Validation: both complete CP calculations at R/R0=1.0 with STO-3G converged
 (AB and both ghost monomers). E_int: MP2-in-B3LYP = -3.253033 kcal/mol;
 OBMP2-in-B3LYP = -4.374281 kcal/mol, matching the prior driver tests within
 1e-8 Hartree. Shared imports, Python compilation and Bash syntax were checked.
+
+## Reference and change record
+
+`references/intE_ccsdt.csv` normalizes the supplied CCSD(T) table to the driver
+column names without changing values; `references/raw/intE_ccsdt.csv` is the
+original. The reference is marked UNVERIFIED: basis/convergence provenance is
+missing and the large interaction-energy offset needs checking. See
+`references/README.md` before using it for error statistics.
+
+`methods/embedding/intE_changes_explained.md` sits beside `intE.py` and documents
+the original-to-current driver changes with code snippets and a complete diff.
