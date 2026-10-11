@@ -1,6 +1,6 @@
 # Những thay đổi trong pipeline intE của benchmark dimmer_cl
 
-Ngày lập: 11/10/2026. Cập nhật đường dẫn launcher theo commit `00f744a` của người dùng. Báo cáo so sánh file gốc `intE_obmp2inb3lyp.py` đã gửi với file hiện tại `benchmarks/dimmer_cl/methods/embedding/intE.py` trong repo `bghuy130904/job_HPC`, branch `workspace/benchmark-layout`.
+Ngày lập: 11/10/2026. Cập nhật đường dẫn launcher theo commit `00f744a` của người dùng. Báo cáo so sánh file gốc `intE_obmp2inb3lyp.py` đã gửi với file hiện tại `benchmarks/dimmer_cl/methods/obmp2/intE.py` trong repo `bghuy130904/job_HPC`, branch `workspace/benchmark-layout`.
 
 Các số dòng “cũ” thuộc file gốc, các số dòng “mới” thuộc `intE.py` hiện tại (442 dòng). Chúng có thể thay đổi khi file được chỉnh sửa tiếp. Phụ lục cuối là diff đầy đủ của hai file, bao gồm cả thay đổi chú thích và thông báo.
 
@@ -293,7 +293,7 @@ if METHOD == 'mp2':
 else:
     from pycmf.OBDH import OBMP2_CL as EmbeddingMethod
 ```
-**Tại sao sửa:** đáp ứng yêu cầu tổ chức workspace: `shared/mp2_embed.py` là bản dùng chung; benchmark không giữ một bản riêng. `parents[4]` đi từ file `benchmarks/dimmer_cl/methods/embedding/intE.py` lên gốc repo, không phụ thuộc thư mục đang chạy lệnh. `METHOD=mp2` chọn UMP2_CL; mặc định `obmp2` chọn OBMP2_CL của pyCMF. Đối tượng được tạo bằng `EmbeddingMethod(mf)`.
+**Tại sao sửa:** đáp ứng yêu cầu tổ chức workspace: `shared/mp2_embed.py` là bản dùng chung; benchmark không giữ một bản riêng. `parents[4]` đi từ file `benchmarks/dimmer_cl/methods/obmp2/intE.py` lên gốc repo, không phụ thuộc thư mục đang chạy lệnh. `METHOD=mp2` chọn UMP2_CL; mặc định `obmp2` chọn OBMP2_CL của pyCMF. Đối tượng được tạo bằng `EmbeddingMethod(mf)`.
 
 `PYCMF_PATH` trở thành biến môi trường, mặc định vẫn `/share/installs/pyCMF`; đổi append sang insert(0) để ưu tiên đường dẫn chỉ định. Vì pyCMF được insert sau shared, đường dẫn pyCMF đứng trước shared nếu được thêm mới; không nên có module `mp2_embed` trùng tên trong đó.
 
@@ -377,7 +377,7 @@ Diff dưới đây chỉ phục vụ đối chiếu. File gốc và file hiện 
 
 ```diff
 --- intE_obmp2inb3lyp.py (original)
-+++ benchmarks/dimmer_cl/methods/embedding/intE.py (current)
++++ benchmarks/dimmer_cl/methods/obmp2/intE.py (current)
 @@ -1,11 +1,12 @@
  """
 -AAD Interaction Energy: OBMP2-in-B3LYP (Embedding + CL Truncation) R-scan.

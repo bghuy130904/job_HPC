@@ -4,7 +4,7 @@
 and active atom indices. The driver translates monomer B along the original
 geometric-center separation. R is a dimensionless scale, not a distance in Å.
 
-One driver, `methods/embedding/intE.py`, supports `METHOD=mp2` and `METHOD=obmp2`.
+One driver, `methods/obmp2/intE.py`, supports `METHOD=mp2` and `METHOD=obmp2`.
 MP2 imports `shared/mp2_embed.py` using `sys.path.insert`; OBMP2 uses the installed
 `pycmf.OBDH.OBMP2_CL`. No embedding implementation is copied into this benchmark.
 Both use the same geometry, ghost basis, active atom indices, B3LYP, mu=1e6,
@@ -15,11 +15,11 @@ the interaction energy blank rather than zero. All three systems are attempted.
 ## Run from the repository root
 
 ```bash
-METHOD=obmp2 BASIS=sto-3g R='[0.95,1.0,1.05,1.25,2.0]' python benchmarks/dimmer_cl/methods/embedding/intE.py
-METHOD=mp2 BASIS=sto-3g R='1.0' python benchmarks/dimmer_cl/methods/embedding/intE.py
+METHOD=obmp2 BASIS=sto-3g R='[0.95,1.0,1.05,1.25,2.0]' python benchmarks/dimmer_cl/methods/obmp2/intE.py
+METHOD=mp2 BASIS=sto-3g R='1.0' python benchmarks/dimmer_cl/methods/obmp2/intE.py
 mkdir -p /data/giahuy/Result/OBMP2_in_DFT/dimmer_cl/{_output,_error}
-sbatch --export=ALL,METHOD=obmp2 benchmarks/dimmer_cl/jobs/embedding/run.sh
-sbatch --export=ALL,METHOD=mp2 benchmarks/dimmer_cl/jobs/embedding/run.sh
+sbatch --export=ALL,METHOD=obmp2 benchmarks/dimmer_cl/jobs/obmp2/run.sh
+sbatch --export=ALL,METHOD=mp2 benchmarks/dimmer_cl/jobs/obmp2/run.sh
 ```
 
 Installed dependencies: PySCF, pyCMF, NumPy, pandas; openpyxl for Excel output.
@@ -64,5 +64,5 @@ original. The reference is marked UNVERIFIED: basis/convergence provenance is
 missing and the large interaction-energy offset needs checking. See
 `references/README.md` before using it for error statistics.
 
-`methods/embedding/intE_changes_explained.md` sits beside `intE.py` and documents
+`methods/obmp2/intE_changes_explained.md` sits beside `intE.py` and documents
 the original-to-current driver changes with code snippets and a complete diff.

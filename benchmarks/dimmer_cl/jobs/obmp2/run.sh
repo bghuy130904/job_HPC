@@ -12,7 +12,7 @@
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
-INPUT_FILE="/home/giahuy/Code/job/benchmarks/dimmer_cl/methods/embedding/intE.py"
+INPUT_FILE="/home/giahuy/Code/job/benchmarks/dimmer_cl/methods/obmp2/intE.py"
 export METHOD="${METHOD:-obmp2}"
 # Ghi output trực tiếp ra /data
 OUTPUT_DIR="/data/giahuy/Result/OBMP2_in_DFT/dimmer_cl/$METHOD/$SLURM_JOB_ID/"
