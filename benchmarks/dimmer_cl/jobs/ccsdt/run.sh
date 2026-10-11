@@ -1,20 +1,20 @@
 #!/bin/bash
 
 #SBATCH --job-name=intE_ccsdt_dimmer_cl ### Job name
-#SBATCH --output=/data/giahuy/Result/CCSDT/dimmer_cl/_output/intE.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/CCSDT/dimmer_cl/_error/intE.err             ### Standard error file
+#SBATCH --output=/data/giahuy/Result/CCSD/dimmer_cl/_output/intE.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/CCSD/dimmer_cl/_error/intE.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
 #SBATCH --cpus-per-task=12            ### Number of CPU cores per task
 #SBATCH --threads-per-core=1
-#SBATCH --mem=100G
+#SBATCH --mem=150G
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/dimmer_cl/methods/ccsdt/intE.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/CCSDT/dimmer_cl/$SLURM_JOB_ID/"
+OUTPUT_DIR="/data/giahuy/Result/CCSD/dimmer_cl/$SLURM_JOB_ID/"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/intE_ccsdt_dimmer_cl.txt"
 export RUN_DIR="$OUTPUT_DIR"
@@ -37,8 +37,8 @@ export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # Tham số của driver intE được truyền qua biến môi trường
-export BASIS="${BASIS:-def2-QZVPPD}"
-export MEMORY="${MEMORY:-90000}"
+export BASIS="${BASIS:-def2-TZVPD}"
+export MEMORY="${MEMORY:-140000}"
 export FROZEN="${FROZEN:-0}"
 export REFERENCE="${REFERENCE:-uhf}"
 
