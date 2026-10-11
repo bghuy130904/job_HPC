@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Scan MP2-in-DFT using the unmodified supplied mp2_embed.py (HF base A).
 
-Place mp2_embed.py beside this script; requires installed PySCF and pycmf.
+Uses shared/mp2_embed.py; requires installed PySCF and pycmf.
 python -u mp2.py --basis cc-pvdz --shells 0 \
     --xc-env b3lyp --threads 12 --max-memory 40000 \
     --output mp2_aldehyde_cl.json
@@ -60,6 +60,10 @@ def read_xyz(path):
     return '\n'.join(' '.join(row) for row in rows)
 
 
+SHARED_DIR = Path(__file__).resolve().parents[4] / 'shared'
+sys.path.insert(0, str(SHARED_DIR))
+
+
 def worker(config_path, count, shell, result_path):
     config = json.loads(Path(config_path).read_text())['config']
     started = time.monotonic()
@@ -70,9 +74,12 @@ def worker(config_path, count, shell, result_path):
         from pyscf import gto, scf, lib
         import pyscf
         from pycmf.OBDH import CL_embed, uobdh_embed
-        spec = importlib.util.spec_from_file_location('mp2_embed_input', config['module_file'])
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        if Path(config['module_file']).resolve() == (SHARED_DIR / 'mp2_embed.py').resolve():
+            import mp2_embed as module
+        else:
+            spec = importlib.util.spec_from_file_location('mp2_embed_input', config['module_file'])
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
         lib.num_threads(config['threads'])
         mol = gto.M(
             atom=config['atom'],
@@ -123,7 +130,7 @@ def main():
     parser.add_argument('--charge', type=int, default=0)
     parser.add_argument('--spin', type=int, default=0,
                         help='N_alpha - N_beta; doublet: 1, triplet: 2')
-    parser.add_argument('--module-file', type=Path, default=Path(__file__).with_name('mp2_embed.py'))
+    parser.add_argument('--module-file', type=Path, default=SHARED_DIR / 'mp2_embed.py')
     parser.add_argument('--frozen', type=int, default=0)
     parser.add_argument('--xc-env', default='b3lyp')
     parser.add_argument('--auxbasis', default=None, help='Default: PySCF automatic auxiliary basis.')

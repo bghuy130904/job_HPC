@@ -44,12 +44,12 @@ DFT/bench_dipole_152/sh_file/merge_sp.sh,benchmarks/dipole_152/jobs/dft/merge_sp
 MP2/bench_MIPC/_src/cation.py,benchmarks/mipc/methods/mp2/cation.py,move
 MP2/bench_MIPC/_src/complex.py,benchmarks/mipc/methods/mp2/complex.py,move
 MP2/bench_MIPC/_src/ligands.py,benchmarks/mipc/methods/mp2/ligands.py,move
-MP2/bench_MIPC/_src/mp2_embed.py,benchmarks/mipc/methods/mp2/mp2_embed.py,move
+MP2/bench_MIPC/_src/mp2_embed.py,shared/mp2_embed.py,consolidate
 MP2/bench_MIPC/sh_file/cation.sh,benchmarks/mipc/jobs/mp2/cation.sh,move
 MP2/bench_MIPC/sh_file/complex.sh,benchmarks/mipc/jobs/mp2/complex.sh,move
 MP2/bench_MIPC/sh_file/ligands.sh,benchmarks/mipc/jobs/mp2/ligands.sh,move
 MP2/bench_conv_n_Hexanol/_src/mp2.py,benchmarks/hexanol_cl/methods/mp2/mp2.py,move
-MP2/bench_conv_n_Hexanol/_src/mp2_embed.py,benchmarks/hexanol_cl/methods/mp2/mp2_embed.py,move
+MP2/bench_conv_n_Hexanol/_src/mp2_embed.py,shared/mp2_embed.py,consolidate
 MP2/bench_conv_n_Hexanol/geometry/input.xyz,benchmarks/hexanol_cl/inputs/input.xyz,move
 MP2/bench_conv_n_Hexanol/sh_file/input.sh,benchmarks/hexanol_cl/jobs/mp2/input.sh,move
 OBDH/bench_MIPC/_src/cation.py,benchmarks/mipc/methods/obdh/cation.py,move
@@ -449,4 +449,4 @@ geometry/dipole_152/sp_inputs.json,archive/dipole_152/earlier_inputs/sp_inputs.j
 obdh.sh,archive/launchers/obdh.sh,move
 obmp2.sh,archive/launchers/obmp2.sh,move
 orca.sh,archive/launchers/orca.sh,move
-
+benchmarks/aldehyde_cl/methods/mp2/mp2_embed.py,shared/mp2_embed.py,consolidate (canonical guarded version)

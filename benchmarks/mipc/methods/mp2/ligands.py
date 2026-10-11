@@ -1,5 +1,9 @@
 import time
 from pyscf import scf, gto
+import sys
+from pathlib import Path
+SHARED_DIR = Path(__file__).resolve().parents[4] / 'shared'
+sys.path.insert(0, str(SHARED_DIR))
 from mp2_embed import UMP2_CL
 
 mol = gto.Mole()

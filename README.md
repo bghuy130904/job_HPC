@@ -12,6 +12,7 @@ Organized from commit 822fd36915ff16abd392b9af3e16c99b1986dda9. The initial layo
 | mipc | mp2, obmp2, obdh, b2plyp, pbe0 | Geometries remain in the existing method scripts; extracting them is a separate code change |
 | hexanol_cl | mp2, obdh | inputs/input.xyz |
 | retinal | obmp2 | Existing scripts only |
+| dimmer_cl | embedding (METHOD=mp2 or obmp2) | inputs/aad.json; CP dimer scan, shared MP2 embedding |
 
 The obdh dipole driver already supports UHF, UMP2, OBMP2 and OBDH through method selection. Keep one driver instead of copying it into four folders. Method folder names describe existing drivers, not separate copies for every supported method.
 
@@ -22,7 +23,7 @@ The obdh dipole driver already supports UHF, UMP2, OBMP2 and OBDH through method
 - benchmarks/<benchmark>/methods/<method>/: calculation scripts; local helper imports stay beside their callers.
 - benchmarks/<benchmark>/jobs/<method>/: submission and merge scripts.
 - benchmarks/<benchmark>/tools/: input generators and collectors.
-- shared/: one implementation of identical helper modules; method folders contain relative symbolic links where needed for existing import names.
+- shared/: one implementation of common helper modules. MP2 embedding callers use sys.path.insert with the repository-relative shared directory; do not copy mp2_embed.py into benchmarks.
 - results/<benchmark>/<method>/legacy/: existing result workbooks. Keep their names to preserve their history.
 - experiments/: exploratory scripts without an established benchmark.
 - archive/: earlier launchers and input variants; excluded from the main benchmark navigation.
