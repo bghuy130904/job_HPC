@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=intE_dimmer_cl ### Job name
-#SBATCH --output=/data/giahuy/Result/dimmer_cl/_output/intE_%j.out          ### Standard output file
-#SBATCH --error=/data/giahuy/Result/dimmer_cl/_error/intE_%j.err             ### Standard error file
+#SBATCH --output=/data/giahuy/Result/OBMP2_in_DFT/dimmer_cl/_output/intE.out          ### Standard output file
+#SBATCH --error=/data/giahuy/Result/OBMP2_in_DFT/dimmer_cl/_error/intE.err             ### Standard error file
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
@@ -15,7 +15,7 @@ start=$(date +%s)
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/dimmer_cl/methods/embedding/intE.py"
 export METHOD="${METHOD:-obmp2}"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/dimmer_cl/$METHOD/$SLURM_JOB_ID/"
+OUTPUT_DIR="/data/giahuy/Result/OBMP2_in_DFT/dimmer_cl/$METHOD/$SLURM_JOB_ID/"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/intE_dimmer_cl.txt"
 export RUN_DIR="$OUTPUT_DIR"
