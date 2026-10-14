@@ -11,7 +11,7 @@ script, but not calculation sources or full run settings.
 - `methods/obdh/obdh.py`, `methods/mp2/mp2.py`: method entry points.
 - `methods/shared/scan.py`: geometry generation, isolated workers, diagnostics,
   checkpointing and the legacy-compatible output schema.
-- `jobs/{obdh,mp2}/input.sh`: ethanol submissions; `input_butanol.sh`: butanol submissions.
+- `jobs/{obdh,mp2}/input.sh`: one submission per method, running both molecules.
 - `tools/compare_pes.py`: compare matching angles and generate PNG/CSV/metrics.
 - `tests/`: geometric invariants.
 
@@ -69,7 +69,8 @@ Cluster launchers follow the corresponding
 `benchmarks/aldehyde_cl/jobs/{obdh,mp2}/input.sh` format: explicit /home source
 paths, /data result paths, INPUT_FILE / OUTPUT_DIR / OUTPUT_FILE, job scratch,
 module/venv, thread variables, redirected Python output, exit-code checks and
-elapsed-time reporting. Each file submits one molecule.
+elapsed-time reporting. Each job runs ethanol and butanol sequentially and
+checks each calculation exit code.
 
 Create the Slurm log directories before submission (Slurm opens these files
 before the script can create directories):
@@ -78,16 +79,16 @@ before the script can create directories):
 mkdir -p /data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/{_output,_error}
 mkdir -p /data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/{_output,_error}
 sbatch benchmarks/torsional_pes/jobs/obdh/input.sh
-sbatch benchmarks/torsional_pes/jobs/obdh/input_butanol.sh
 sbatch benchmarks/torsional_pes/jobs/mp2/input.sh
-sbatch benchmarks/torsional_pes/jobs/mp2/input_butanol.sh
 ```
 
 Sources use `/home/giahuy/Code/job`. Results use
-`/data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/{ethanol,butanol}` and
-`/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/{ethanol,butanol}`.
+`/data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/` and
+`/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/`. Both molecules share the
+method output directory; filenames identify each molecule. The launcher log
+`torsional_pes.txt` contains output from both calculations.
 Edit the explicit INPUT_FILE / OUTPUT_DIR paths in the launcher if needed.
-Extra driver arguments are passed through `"$@"`; e.g. append
+Extra driver arguments are passed through `"$@"` to both calculations; e.g. append
 `--shells 1 --angles 0 60 90 120 180` for the preliminary protocol, or
 `--resume` to continue the same run. Default submissions compute all 19 angles
 and shells 1,2,3 (paper shells 0,1,2). The matched XC and alpha are unchanged.

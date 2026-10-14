@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=mp2_torsional_ethanol ### Job name
-#SBATCH --output=/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/_output/ethanol_mp2.out
-#SBATCH --error=/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/_error/ethanol_mp2.err
+#SBATCH --job-name=mp2_torsional_pes ### Job name
+#SBATCH --output=/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/_output/torsional_mp2.out
+#SBATCH --error=/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/_error/torsional_mp2.err
 #SBATCH --partition=Bigmem            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
@@ -14,9 +14,9 @@ start=$(date +%s)
 # input-file/code trong đường dẫn /home
 INPUT_FILE="/home/giahuy/Code/job/benchmarks/torsional_pes/methods/mp2/mp2.py"
 # Ghi output trực tiếp ra /data
-OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/ethanol/"
+OUTPUT_DIR="/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/"
 mkdir -p "$OUTPUT_DIR"
-OUTPUT_FILE="$OUTPUT_DIR/torsional_ethanol.txt"
+OUTPUT_FILE="$OUTPUT_DIR/torsional_pes.txt"
 
 # ====================================================================#
 # LƯU Ý: 2 DÒNG COMMAND NÀY LÀ BẮT BUỘC PHẢI CÓ TRONG FILE SUBMIT JOB
@@ -36,23 +36,26 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 mkdir -p "$TMPDIR"
 
-PYTHONPATH= python -u "$INPUT_FILE" \
-    --config "/home/giahuy/Code/job/benchmarks/torsional_pes/inputs/scan.json" \
-    --molecule ethanol \
-    --basis "6-311++G(2d,p)" \
-    --xc-env "0.5*HF+0.5*B88,0.6*LYP" \
-    --threads "$SLURM_CPUS_PER_TASK" \
-    --max-memory 40000 \
-    --output-dir "${OUTPUT_DIR%/}" \
-    --shells 1 2 3 \
-    "$@" \
-    > "$OUTPUT_FILE" 2>&1
+: > "$OUTPUT_FILE"
+for molecule in ethanol 1-butanol; do
+    PYTHONPATH= python -u "$INPUT_FILE" \
+        --config "/home/giahuy/Code/job/benchmarks/torsional_pes/inputs/scan.json" \
+        --molecule "$molecule" \
+        --basis "6-311++G(2d,p)" \
+        --xc-env "0.5*HF+0.5*B88,0.6*LYP" \
+        --threads "$SLURM_CPUS_PER_TASK" \
+        --max-memory 40000 \
+        --output-dir "${OUTPUT_DIR%/}" \
+        --shells 1 2 3 \
+        "$@" \
+        >> "$OUTPUT_FILE" 2>&1
 
-status=$?
-if [ "$status" -ne 0 ]; then
-    echo "Tính toán thất bại, exit code: $status" >&2
-    exit "$status"
-fi
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        echo "Tính toán thất bại, exit code: $status" >&2
+        exit "$status"
+    fi
+done
 
 echo "Job hoàn tất."
 echo "Output đã được ghi trực tiếp vào: $OUTPUT_FILE"
