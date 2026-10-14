@@ -41,7 +41,6 @@ for molecule in ethanol 1-butanol; do
         --molecule "$molecule" \
         --basis "6-311++G(2d,p)" \
         --alpha 0.5 0.4 \
-        --xc-env "0.5*HF+0.5*B88,0.6*LYP" \
         --threads "$SLURM_CPUS_PER_TASK" \
         --max-memory 40000 \
         --output-dir "${OUTPUT_DIR%/}" \

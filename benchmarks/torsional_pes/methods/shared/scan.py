@@ -65,6 +65,10 @@ def rotate_oh(coords, indices, angle):
     return coords
 
 
+def dft_term(alpha):
+    return f'{alpha[0]}*HF+{1-alpha[0]}*B88,{1-alpha[1]}*LYP'
+
+
 def worker(config_path, phi, ns, point_path):
     config = json.loads(Path(config_path).read_text())['config']
     result = {'phi': phi, 'n_shells': ns, 'shell_label': ns-1}
@@ -111,7 +115,10 @@ def worker(config_path, phi, ns, point_path):
             sys.path.insert(0, str(REPO / 'shared'))
             from mp2_embed import UMP2_CL
             calc = UMP2_CL(mf, frozen=0)
-        calc.xc_env = config['xc_env']
+        # OBDH derives its default DFT term from alphaa inside embed_kernel.
+        # Only a different explicit XC requires overriding that default.
+        if config['method'] == 'mp2' or config['xc_env'] != dft_term(config['alpha']):
+            calc.xc_env = config['xc_env']
         calc.use_embed = True
         calc.use_cl = True
         calc.active_atoms = config['active_atoms']
@@ -169,7 +176,8 @@ def main(method=None):
     p.add_argument('--molecule', choices=['ethanol','1-butanol'], required=True)
     p.add_argument('--basis')
     p.add_argument('--alpha', type=float, nargs=2)
-    p.add_argument('--xc-env', help='Environment and upstream OBDH subsystem XC. Default matched DH-BLYP.')
+    p.add_argument('--xc-env', help='Optional XC override. OBDH defaults to its DFT term from alpha; '
+                   'MP2 defaults to the matched XC in scan.json.')
     p.add_argument('--angles', type=float, nargs='+')
     p.add_argument('--angle-mode', choices=['dihedral','rotation'], default='dihedral',
                    help='Absolute dihedral (default) or rotation offset from the supplied XYZ.')
@@ -189,7 +197,10 @@ def main(method=None):
     molecule = spec['molecules'][a.molecule]
     symbols, coords = read_xyz(a.config.parent/molecule['xyz'])
     alpha = a.alpha or spec['alpha']
-    xc = a.xc_env or (f'{alpha[0]}*HF+{1-alpha[0]}*B88,{1-alpha[1]}*LYP' if a.alpha else spec['xc_env'])
+    if a.method == 'obdh':
+        xc = a.xc_env or dft_term(alpha)
+    else:
+        xc = a.xc_env or (dft_term(alpha) if a.alpha else spec['xc_env'])
     angles = sorted(set(a.angles or spec['angles']) | {180.0})
     shells = sorted(set(a.shells or spec['n_shells']))
     if any(not math.isfinite(x) or not 0 <= x <= 180 for x in angles):

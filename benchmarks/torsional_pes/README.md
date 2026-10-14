@@ -29,8 +29,13 @@ Default alpha `(0.5,0.4)` comes from the supplied paper; both methods use the
 matched environment `0.5*HF+0.5*B88,0.6*LYP`. The old JSONs do not identify
 alpha, XC, DF auxiliary basis, grids, projector shift, solver tolerances or source
 versions. These defaults are reconstruction assumptions, not recovered metadata.
-Upstream OBDH uses `xc_env` in its active solver as well as the environment;
-changing `--xc-env` changes both in that implementation.
+OBDH leaves its `xc_env` at the upstream default and derives the DFT term from
+alpha. Its launcher therefore sets alpha only. `scan.json` XC is the MP2
+environment default; OBDH does not use that fixed value as its default. Output
+metadata records the resolved effective XC for reproducibility. An explicit
+`--xc-env` override remains available; upstream OBDH then uses that XC in both
+the active solver and the environment. sub-OBDH names the embedded OBDH method,
+not a separate semilocal XC functional.
 
 The scan default is an absolute C2-C1-O-H dihedral, constructed by first
 measuring the supplied XYZ dihedral. Ethanol starts at 0 degrees; butanol starts
