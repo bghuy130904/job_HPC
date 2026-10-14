@@ -3,7 +3,7 @@
 #SBATCH --job-name=mp2_torsional_pes ### Job name
 #SBATCH --output=/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/_output/torsional_mp2.out
 #SBATCH --error=/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/_error/torsional_mp2.err
-#SBATCH --partition=Bigmem            ### queue
+#SBATCH --partition=normal            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
 #SBATCH --cpus-per-task=12            ### Number of CPU cores per task

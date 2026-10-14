@@ -3,7 +3,7 @@
 #SBATCH --job-name=obdh_torsional_pes ### Job name
 #SBATCH --output=/data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/_output/torsional_obdh.out
 #SBATCH --error=/data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/_error/torsional_obdh.err
-#SBATCH --partition=Bigmem            ### queue
+#SBATCH --partition=normal            ### queue
 #SBATCH --nodes=1                     ### Number of nodes
 #SBATCH --ntasks=1                    ### Number of tasks per node
 #SBATCH --cpus-per-task=12            ### Number of CPU cores per task
