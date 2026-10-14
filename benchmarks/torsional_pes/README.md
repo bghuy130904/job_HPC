@@ -11,7 +11,7 @@ script, but not calculation sources or full run settings.
 - `methods/obdh/obdh.py`, `methods/mp2/mp2.py`: method entry points.
 - `methods/shared/scan.py`: geometry generation, isolated workers, diagnostics,
   checkpointing and the legacy-compatible output schema.
-- `jobs/{obdh,mp2}/input.sh`: Slurm submissions for both molecules.
+- `jobs/{obdh,mp2}/input.sh`: ethanol submissions; `input_butanol.sh`: butanol submissions.
 - `tools/compare_pes.py`: compare matching angles and generate PNG/CSV/metrics.
 - `tests/`: geometric invariants.
 
@@ -65,19 +65,32 @@ For a preliminary five-angle run, add `--angles 0 60 90 120 180 --shells 1`.
 `--resume` retries failures and skips accepted points; `--dry-run` prints inputs.
 The 180-degree anchor is included automatically for comparison.
 
-Cluster submissions:
+Cluster launchers follow the corresponding
+`benchmarks/aldehyde_cl/jobs/{obdh,mp2}/input.sh` format: explicit /home source
+paths, /data result paths, INPUT_FILE / OUTPUT_DIR / OUTPUT_FILE, job scratch,
+module/venv, thread variables, redirected Python output, exit-code checks and
+elapsed-time reporting. Each file submits one molecule.
+
+Create the Slurm log directories before submission (Slurm opens these files
+before the script can create directories):
 
 ```bash
+mkdir -p /data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/{_output,_error}
+mkdir -p /data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/{_output,_error}
 sbatch benchmarks/torsional_pes/jobs/obdh/input.sh
+sbatch benchmarks/torsional_pes/jobs/obdh/input_butanol.sh
 sbatch benchmarks/torsional_pes/jobs/mp2/input.sh
+sbatch benchmarks/torsional_pes/jobs/mp2/input_butanol.sh
 ```
 
-Jobs default to `/home/giahuy/Code/job` and write into
-`/data/giahuy/Result/torsional_pes/<method>/<job_id>`.
-Override `REPO_DIR` / `OUTPUT_DIR` with `sbatch --export=ALL,...` as needed.
-Extra arguments are passed to both molecule runs, e.g. `--shells 1 --angles 0 60 90 120 180`.
-For resubmission, retain the original OUTPUT_DIR and pass `--resume`.
-Slurm stdout/stderr are created in the submission directory, before the job starts.
+Sources use `/home/giahuy/Code/job`. Results use
+`/data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/{ethanol,butanol}` and
+`/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/{ethanol,butanol}`.
+Edit the explicit INPUT_FILE / OUTPUT_DIR paths in the launcher if needed.
+Extra driver arguments are passed through `"$@"`; e.g. append
+`--shells 1 --angles 0 60 90 120 180` for the preliminary protocol, or
+`--resume` to continue the same run. Default submissions compute all 19 angles
+and shells 1,2,3 (paper shells 0,1,2). The matched XC and alpha are unchanged.
 
 ## Output and comparison
 
