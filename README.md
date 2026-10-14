@@ -11,6 +11,7 @@ Organized from commit 822fd36915ff16abd392b9af3e16c99b1986dda9. The initial layo
 | sie4x4 | dft, obdh; ORCA scripts under tools and jobs/orca | inputs/input.json; ORCA inputs generated per run |
 | mipc | mp2, obmp2, obdh, b2plyp, pbe0 | Geometries remain in the existing method scripts; extracting them is a separate code change |
 | hexanol_cl | mp2, obdh | inputs/input.xyz |
+| torsional_pes | mp2, obdh | inputs/scan.json, ethanol.xyz, 1_butanol.xyz; references/ legacy PES |
 | retinal | obmp2 | Existing scripts only |
 | dimmer_cl | obmp2 (also METHOD=mp2), ccsdt | inputs/aad.json; CP dimer scan, shared MP2 embedding |
 
