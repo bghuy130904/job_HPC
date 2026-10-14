@@ -8,7 +8,7 @@
 #SBATCH --ntasks=1                    ### Number of tasks per node
 #SBATCH --cpus-per-task=20            ### Number of CPU cores per task
 #SBATCH --threads-per-core=1
-#SBATCH --mem=240G
+#SBATCH --mem=210G
 
 start=$(date +%s)
 # input-file/code trong đường dẫn /home
@@ -38,7 +38,7 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # Tham số của driver intE được truyền qua biến môi trường
 export BASIS="${BASIS:-def2-TZVPD}"
-export MEMORY="${MEMORY:-230000}"
+export MEMORY="${MEMORY:-200000}"
 export FROZEN="${FROZEN:-0}"
 export REFERENCE="${REFERENCE:-uhf}"
 
