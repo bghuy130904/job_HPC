@@ -1,0 +1,46 @@
+[
+  {
+    "molecule": "1-butanol",
+    "method": "obdh",
+    "n_shells": 1,
+    "n_points": 5,
+    "legacy_angle_mode": "as-labeled",
+    "rms_delta_kcal": 0.14493083931366424,
+    "max_abs_delta_kcal": 0.19977555976928796,
+    "pearson": 0.9936641859411532,
+    "absolute_180_delta_hartree": -0.05607610878826108
+  },
+  {
+    "molecule": "ethanol",
+    "method": "obdh",
+    "n_shells": 1,
+    "n_points": 5,
+    "legacy_angle_mode": "as-labeled",
+    "rms_delta_kcal": 0.013500724997480677,
+    "max_abs_delta_kcal": 0.019279101239411567,
+    "pearson": 0.9999984740605579,
+    "absolute_180_delta_hartree": 0.005864403804338281
+  },
+  {
+    "molecule": "1-butanol",
+    "method": "mp2",
+    "n_shells": 1,
+    "n_points": 5,
+    "legacy_angle_mode": "as-labeled",
+    "rms_delta_kcal": 2.7898759378568156,
+    "max_abs_delta_kcal": 3.8158126934453485,
+    "pearson": 0.8105544172735372,
+    "absolute_180_delta_hartree": 0.045147355255352295
+  },
+  {
+    "molecule": "ethanol",
+    "method": "mp2",
+    "n_shells": 1,
+    "n_points": 5,
+    "legacy_angle_mode": "as-labeled",
+    "rms_delta_kcal": 1.9026603289864783,
+    "max_abs_delta_kcal": 2.8256176301790656,
+    "pearson": 0.9334604706740107,
+    "absolute_180_delta_hartree": 0.05050689219336846
+  }
+]

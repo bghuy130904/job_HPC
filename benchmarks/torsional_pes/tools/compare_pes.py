@@ -15,6 +15,8 @@ def main():
     p.add_argument('--runs', nargs='+', type=Path, required=True)
     p.add_argument('--references',type=Path,default=ROOT/'references')
     p.add_argument('--output-dir',type=Path,required=True)
+    p.add_argument('--legacy-angle-mode', choices=['as-labeled','rotation'],default='as-labeled',
+                   help='Treat old butanol phi as an offset from its 180-degree starting geometry.')
     a = p.parse_args()
     files = [f for d in a.runs for f in sorted(d.glob('*_pes_ns*.json'))]
     if not files:
@@ -29,6 +31,8 @@ def main():
             continue
         ref=json.loads(ref_path.read_text())
         old={float(pt['phi']):pt['e_rel_kcal'] for pt in ref['scan']}
+        if a.legacy_angle_mode == 'rotation' and data['config']['molecule'] == '1-butanol':
+            old = {180-phi: energy for phi,energy in old.items()}
         anchor = old[180.0]
         old = {phi: energy-anchor for phi,energy in old.items()}
         scan=[dict(pt) for pt in data['scan'] if pt.get('e_rel_kcal') is not None]
@@ -62,7 +66,7 @@ def main():
                              legacy_kcal=old[float(pt['phi'])],new_kcal=pt['e_rel_kcal'],delta_kcal=delta))
         if diffs:
             corr=float(np.corrcoef(energies,refs)[0,1]) if len(diffs)>2 and np.std(energies)>0 else None
-            metrics.append(dict(molecule=mol,method=method,n_shells=ns,n_points=len(diffs),
+            metrics.append(dict(molecule=mol,method=method,n_shells=ns,n_points=len(diffs),legacy_angle_mode=a.legacy_angle_mode,
                                 rms_delta_kcal=float(np.sqrt(np.mean(np.square(diffs)))),
                                 max_abs_delta_kcal=float(np.max(np.abs(diffs))),pearson=corr,
                                 absolute_180_delta_hartree=(data['e_ref_hartree']+anchor_new/627.5094740631)

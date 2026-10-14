@@ -1,0 +1,12 @@
+[
+  {
+    "molecule": "ethanol",
+    "method": "mp2",
+    "n_shells": 1,
+    "n_points": 5,
+    "rms_delta_kcal": 1.9616486788680694,
+    "max_abs_delta_kcal": 2.887508214392568,
+    "pearson": 0.9406118241268981,
+    "absolute_180_delta_hartree": -0.21149608726202018
+  }
+]

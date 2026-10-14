@@ -32,6 +32,14 @@ versions. These defaults are reconstruction assumptions, not recovered metadata.
 Upstream OBDH uses `xc_env` in its active solver as well as the environment;
 changing `--xc-env` changes both in that implementation.
 
+The scan default is an absolute C2-C1-O-H dihedral, constructed by first
+measuring the supplied XYZ dihedral. Ethanol starts at 0 degrees; butanol starts
+at 180 degrees. `--angle-mode rotation` instead interprets phi as a rotation
+relative to that starting geometry, and always records the actual signed
+dihedral separately. Do not silently equate a rotation offset to a dihedral.
+`compare_pes.py --legacy-angle-mode rotation` can test that alternative
+interpretation of the old butanol labels (not assumed by default).
+
 Use PySCF and pycmf with `OBDH_CL`, `CL_embed` and the unrestricted solver.
 Full and embedded SCFs use the requested `--scf-cycles` / `--scf-tol` controls.
 OBDH additionally requires its upstream convergence flag, which currently tests

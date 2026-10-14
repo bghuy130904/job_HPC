@@ -1,0 +1,615 @@
+#INFO: **** input file is /workspace/scratch/14b5ca9fcc7a/job_HPC/benchmarks/torsional_pes/methods/shared/scan.py ****
+#!/usr/bin/env python3
+"""Rigid C2-C1-O-H torsion scan, retaining all atoms and the full AO basis."""
+import argparse
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import traceback
+
+ROOT = Path(__file__).resolve().parents[2]
+REPO = ROOT.parents[1]
+KCAL = 627.5094740631
+
+
+def write_json(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + '.tmp')
+    temp.write_text(json.dumps(data, indent=2, allow_nan=False) + '\n')
+    os.replace(temp, path)
+
+
+def read_xyz(path):
+    rows = Path(path).read_text().splitlines()
+    atoms = [line.split('#', 1)[0].split() for line in rows[2:] if line.strip()]
+    if len(atoms) != int(rows[0]) or any(len(row) != 4 for row in atoms):
+        raise ValueError('XYZ atom count or row format is invalid.')
+    symbols = [row[0] for row in atoms]
+    coords = [[float(x) for x in row[1:]] for row in atoms]
+    if not all(math.isfinite(x) for row in coords for x in row):
+        raise ValueError('Nonfinite coordinates.')
+    return symbols, coords
+
+
+def dihedral(coords, indices):
+    import numpy as np
+    p0, p1, p2, p3 = np.asarray(coords)[indices]
+    axis = p2 - p1
+    axis /= np.linalg.norm(axis)
+    v = p0 - p1
+    w = p3 - p2
+    v -= np.dot(v, axis) * axis
+    w -= np.dot(w, axis) * axis
+    return float(np.degrees(np.arctan2(np.dot(np.cross(axis, v), w), np.dot(v, w))))
+
+
+def rotate_oh(coords, indices, angle):
+    import numpy as np
+    coords = np.array(coords, dtype=float, copy=True)
+    _, c, o, h = indices
+    axis = coords[o] - coords[c]
+    axis /= np.linalg.norm(axis)
+    # Set the actual dihedral, rather than rotating by an offset from the XYZ.
+    theta = np.radians(angle - dihedral(coords, indices))
+    v = coords[h] - coords[o]
+    coords[h] = coords[o] + (v*np.cos(theta) + np.cross(axis, v)*np.sin(theta)
+                            + axis*np.dot(axis, v)*(1-np.cos(theta)))
+    actual = dihedral(coords, indices)
+    if abs((actual-angle+180) % 360-180) > 1e-8:
+        raise RuntimeError('Torsion construction failed.')
+    return coords
+
+
+def worker(config_path, phi, ns, point_path):
+    config = json.loads(Path(config_path).read_text())['config']
+    result = {'phi': phi, 'n_shells': ns, 'shell_label': ns-1}
+    start = time.monotonic()
+    try:
+        import numpy as np
+        import pyscf
+        from pyscf import gto, scf, lib
+        from pycmf.OBDH import OBDH_CL, main as ob_main, uobdh_embed, uobdh_solver, CL_embed
+        lib.num_threads(config['threads'])
+        scf_records = []
+        original_kernel = scf.hf.SCF.kernel
+
+        def checked_kernel(mf, *args, **kwargs):
+            # Apply user SCF controls to upstream full-system and embedded SCFs.
+            mf.max_cycle = config['scf_cycles']
+            mf.conv_tol = config['scf_tol']
+            energy = original_kernel(mf, *args, **kwargs)
+            scf_records.append({'class': type(mf).__name__, 'converged': bool(mf.converged),
+                                'energy_hartree': float(mf.e_tot)})
+            if not mf.converged:
+                raise RuntimeError(f'{type(mf).__name__} SCF did not converge.')
+            return energy
+
+        scf.hf.SCF.kernel = checked_kernel
+        coords = rotate_oh(config['coords'], config['dihedral'], phi)
+        mol = gto.M(atom=list(zip(config['symbols'], coords)), unit='Angstrom',
+                    basis=config['basis'], charge=0, spin=0, verbose=4,
+                    max_memory=config['max_memory'])
+        mf = scf.UHF(mol).density_fit()
+        mf.kernel()
+        if config['method'] == 'obdh':
+            calc = OBDH_CL(mf)
+            calc.alphaa = tuple(config['alpha'])
+            calc.niter = config['ob_cycles']
+            calc.thresh = config['ob_tol']
+            calc.second_order = True
+            calc.eval_IPEA = False
+            calc.mom_select = False
+        else:
+            sys.path.insert(0, str(REPO / 'shared'))
+            from mp2_embed import UMP2_CL
+            calc = UMP2_CL(mf, frozen=0)
+        calc.xc_env = config['xc_env']
+        calc.use_embed = True
+        calc.use_cl = True
+        calc.active_atoms = config['active_atoms']
+        calc.n_shells = ns
+        calc.mu = config['mu']
+        calc.max_memory = config['max_memory']
+        print(f'CASE phi={phi}, n_shells={ns}, active={calc.active_atoms}', flush=True)
+        energy = float(calc.kernel())
+        if not math.isfinite(energy):
+            raise RuntimeError('Nonfinite energy.')
+        if config['method'] == 'obdh' and not calc.converged:
+            raise RuntimeError('OBDH did not converge; energy not accepted.')
+        sources = [ob_main, uobdh_embed, uobdh_solver, CL_embed]
+        if config['method'] == 'mp2':
+            import mp2_embed
+            sources.append(mp2_embed)
+        result.update(status='converged', energy_hartree=energy,
+                      dihedral_degrees=dihedral(coords, config['dihedral']),
+                      pyscf_version=pyscf.__version__, scfs=scf_records,
+                      source_sha256={m.__name__: hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()
+                                     for m in sources})
+        if config['method'] == 'obdh':
+            result['nocc'] = [int(x) for x in calc.get_nocc()]
+            result['nmo'] = [int(x) for x in calc.get_nmo()]
+    except Exception as exc:
+        result.update(status='failed', error=str(exc))
+        traceback.print_exc()
+    result['runtime_seconds'] = time.monotonic()-start
+    write_json(point_path, result)
+    return 0 if result['status'] == 'converged' else 1
+
+
+def main(method=None):
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--config', type=Path, default=ROOT/'inputs/scan.json')
+    p.add_argument('--method', choices=['obdh','mp2'], default=method, required=method is None)
+    p.add_argument('--molecule', choices=['ethanol','1-butanol'], required=True)
+    p.add_argument('--basis')
+    p.add_argument('--alpha', type=float, nargs=2)
+    p.add_argument('--xc-env', help='Environment and upstream OBDH subsystem XC. Default matched DH-BLYP.')
+    p.add_argument('--angles', type=float, nargs='+')
+    p.add_argument('--shells', type=int, nargs='+', choices=[1,2,3])
+    p.add_argument('--threads', type=int, default=1)
+    p.add_argument('--max-memory', type=float, default=4000)
+    p.add_argument('--scf-cycles', type=int, default=200)
+    p.add_argument('--scf-tol', type=float, default=1e-10)
+    p.add_argument('--ob-cycles', type=int, default=300)
+    p.add_argument('--ob-tol', type=float, default=1e-8)
+    p.add_argument('--mu', type=float, default=1e6)
+    p.add_argument('--output-dir', type=Path, required=True)
+    p.add_argument('--resume', action='store_true')
+    p.add_argument('--dry-run', action='store_true')
+    a = p.parse_args()
+    spec = json.loads(a.config.read_text())
+    molecule = spec['molecules'][a.molecule]
+    symbols, coords = read_xyz(a.config.parent/molecule['xyz'])
+    alpha = a.alpha or spec['alpha']
+    xc = a.xc_env or (f'{alpha[0]}*HF+{1-alpha[0]}*B88,{1-alpha[1]}*LYP' if a.alpha else spec['xc_env'])
+    angles = sorted(set(a.angles or spec['angles']) | {180.0})
+    shells = sorted(set(a.shells or spec['n_shells']))
+    if any(not math.isfinite(x) or not 0 <= x <= 180 for x in angles):
+        p.error('Angles must be finite and in [0,180].')
+    if any(not math.isfinite(x) or not 0 <= x <= 1 for x in alpha):
+        p.error('Alpha must lie in [0,1].')
+    if min(a.threads,a.scf_cycles,a.ob_cycles) < 1 or any(not math.isfinite(x) or x<=0 for x in
+            [a.scf_tol,a.ob_tol,a.max_memory,a.mu]):
+        p.error('Counts, tolerances, memory and mu must be positive.')
+    config = dict(method=a.method, molecule=a.molecule, label=molecule['label'],
+                  basis=a.basis or spec['basis'], alpha=alpha, xc_env=xc,
+                  symbols=symbols, coords=coords, dihedral=molecule['dihedral'],
+                  active_atoms=molecule['active_atoms'], angles=angles, shells=shells,
+                  threads=a.threads,max_memory=a.max_memory,scf_cycles=a.scf_cycles,
+                  scf_tol=a.scf_tol,ob_cycles=a.ob_cycles,ob_tol=a.ob_tol,mu=a.mu)
+    if a.dry_run:
+        print(json.dumps(config, indent=2))
+        return 0
+    out = a.output_dir.resolve()
+    out.mkdir(parents=True,exist_ok=True)
+    meta_path = out/f'{a.molecule}_{a.method}.meta.json'
+    meta = {'config': config, 'points': {}}
+    if meta_path.exists():
+        if not a.resume:
+            p.error('Run exists; use --resume or another output directory.')
+        meta = json.loads(meta_path.read_text())
+        if meta['config'] != config:
+            p.error('Resume configuration differs from the saved run.')
+    write_json(meta_path,meta)
+    logs = out/'logs'
+    logs.mkdir(exist_ok=True)
+    env = os.environ.copy()
+    for name in ['OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','MKL_NUM_THREADS']:
+        env[name] = str(a.threads)
+    failures = 0
+    for ns in shells:
+        for phi in angles:
+            key = f'ns{ns}_phi{phi:g}'
+            if meta['points'].get(key,{}).get('status') == 'converged':
+                continue
+            log_path = logs/f'{a.molecule}_{a.method}_{key}.log'
+            point_path = log_path.with_suffix('.json')
+            point_path.unlink(missing_ok=True)
+            print(f'RUN {a.molecule} {a.method} {key}: {log_path}',flush=True)
+            with log_path.open('w') as log:
+                proc = subprocess.run([sys.executable,'-u',str(Path(__file__).resolve()),
+                                       '--worker',str(meta_path),str(phi),str(ns),str(point_path)],
+                                      stdout=log,stderr=subprocess.STDOUT,env=env)
+            result = json.loads(point_path.read_text()) if point_path.exists() else dict(
+                status='failed',error=f'Worker exited {proc.returncode} without a result.')
+            if proc.returncode != 0:
+                result['status'] = 'failed'
+            result['returncode'] = proc.returncode
+            meta['points'][key] = result
+            failures += result['status'] != 'converged'
+            write_json(meta_path,meta)
+            # Keep the legacy plotting schema, adding absolute energies and diagnostics.
+            ref = meta['points'].get(f'ns{ns}_phi180',{})
+            e_ref = ref.get('energy_hartree') if ref.get('status') == 'converged' else None
+            scan = []
+            for angle in angles:
+                pt = meta['points'].get(f'ns{ns}_phi{angle:g}',{})
+                energy = pt.get('energy_hartree') if pt.get('status') == 'converged' else None
+                scan.append(dict(phi=angle,energy_hartree=energy,
+                                 e_rel_kcal=(energy-e_ref)*KCAL if energy is not None and e_ref is not None else None,
+                                 status=pt.get('status','pending')))
+            suffix = '_mp2' if a.method == 'mp2' else ''
+            write_json(out/f'{a.molecule}{suffix}_pes_ns{ns}.json',dict(
+                molecule=molecule['label'],method=a.method,basis=config['basis'],n_shells=ns,
+                e_ref_hartree=e_ref,reference_angle=180,config=config,scan=scan))
+            print(f'{result["status"]}: {result.get("energy_hartree",result.get("error"))}',flush=True)
+    return 1 if failures else 0
+
+
+if __name__ == '__main__':
+    if len(sys.argv)>1 and sys.argv[1]=='--worker':
+        sys.exit(worker(sys.argv[2],float(sys.argv[3]),int(sys.argv[4]),sys.argv[5]))
+    sys.exit(main())
+#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='13244ea10214', release='6.18.44', version='#1 SMP Sat Sep 26 20:02:31 UTC 2026', machine='x86_64')  Threads 2
+Python 3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]
+numpy 2.3.5  scipy 1.17.0  h5py 3.16.0
+Date: Wed Oct 14 01:34:28 2026
+PySCF version 2.14.0
+PySCF path  /root/.local/lib/python3.12/site-packages/pyscf
+
+[CONFIG] conf_file None
+[INPUT] verbose = 4
+[INPUT] num. atoms = 9
+[INPUT] num. electrons = 26
+[INPUT] charge = 0
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = Angstrom
+[INPUT] Symbol           X                Y                Z      unit          X                Y                Z       unit  Magmom
+[INPUT]  1 C      1.231000000000   0.000000000000   0.000000000000 AA    2.326252859340   0.000000000000   0.000000000000 Bohr   0.0
+[INPUT]  2 H      1.571000000000   1.029000000000   0.000000000000 AA    2.968759741692   1.944528182177   0.000000000000 Bohr   0.0
+[INPUT]  3 H      1.571000000000  -0.514500000000   0.890900000000 AA    2.968759741692  -0.972264091089   1.683557004375 Bohr   0.0
+[INPUT]  4 H      1.571000000000  -0.514500000000  -0.890900000000 AA    2.968759741692  -0.972264091089  -1.683557004375 Bohr   0.0
+[INPUT]  5 C      0.000000000000   0.000000000000   0.000000000000 AA    0.000000000000   0.000000000000   0.000000000000 Bohr   0.0
+[INPUT]  6 H     -0.347000000000  -0.514500000000   0.890900000000 AA   -0.655734965224  -0.972264091089   1.683557004375 Bohr   0.0
+[INPUT]  7 H     -0.347000000000  -0.514500000000  -0.890900000000 AA   -0.655734965224  -0.972264091089  -1.683557004375 Bohr   0.0
+[INPUT]  8 O     -0.447200000000   1.290000000000   0.000000000000 AA   -0.845085522905   2.437746700689   0.000000000000 Bohr   0.0
+[INPUT]  9 H     -0.973173067767   1.436980003174  -0.777372272885 AA   -1.839030569882   2.715498652476  -1.469020692584 Bohr   0.0
+
+nuclear repulsion = 89.2121603683888
+number of shells = 63
+number of NR pGTOs = 174
+number of NR cGTOs = 123
+basis = 6-311++G(2d,p)
+ecp = {}
+CPU time:         0.62
+
+
+******** <class 'pyscf.df.df_jk.DFUHF'> ********
+method = DFUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 200
+direct_scf = False
+chkfile to save SCF result = /tmp/tmpoowx6jrq
+max_memory 4000 MB (current use 97 MB)
+number electrons alpha = 13  beta = 13
+Set gradient conv threshold to 1e-05
+******** <class 'pyscf.df.df.DF'> ********
+auxbasis = None
+max_memory = 4000
+Default auxbasis aug-cc-pvtz-jkfit is used for C 6-311++G(2d,p)
+Default auxbasis aug-cc-pvtz-jkfit is used for H 6-311++G(2d,p)
+Default auxbasis aug-cc-pvtz-jkfit is used for O 6-311++G(2d,p)
+init E= -157.177376130506
+  alpha nocc = 13  HOMO = 0.115190410516828  LUMO = 0.204854457089984
+  beta  nocc = 13  HOMO = 0.0745401719015888  LUMO = 0.204854457089984
+  HOMO = 0.115190410517  LUMO = 0.20485445709  gap/eV = 2.43988
+cycle= 1 E= -153.767665120949  delta_E= 3.41  |g|= 0.657  |ddm|= 2.13
+  alpha nocc = 13  HOMO = -0.479566863320596  LUMO = 0.0176538252257643
+  beta  nocc = 13  HOMO = -0.475872743588042  LUMO = 0.0176538252257643
+  HOMO = -0.475872743588  LUMO = 0.0176538252258  gap/eV = 13.42954
+cycle= 2 E= -153.958967934679  delta_E= -0.191  |g|= 0.398  |ddm|= 1.13
+  alpha nocc = 13  HOMO = -0.44039249283178  LUMO = 0.0367458326291009
+  beta  nocc = 13  HOMO = -0.438227817583584  LUMO = 0.0367458326291009
+  HOMO = -0.438227817584  LUMO = 0.0367458326291  gap/eV = 12.92469
+cycle= 3 E= -154.022295256877  delta_E= -0.0633  |g|= 0.0445  |ddm|= 0.264
+  alpha nocc = 13  HOMO = -0.422496270327343  LUMO = 0.0405203092130092
+  beta  nocc = 13  HOMO = -0.421186109022223  LUMO = 0.0405203092130092
+  HOMO = -0.421186109022  LUMO = 0.040520309213  gap/eV = 12.56367
+cycle= 4 E= -154.023902604725  delta_E= -0.00161  |g|= 0.0176  |ddm|= 0.101
+  alpha nocc = 13  HOMO = -0.42705486900196  LUMO = 0.0403396078227434
+  beta  nocc = 13  HOMO = -0.42626487383707  LUMO = 0.0403396078227434
+  HOMO = -0.426264873837  LUMO = 0.0403396078227  gap/eV = 12.69695
+cycle= 5 E= -154.024059986965  delta_E= -0.000157  |g|= 0.0052  |ddm|= 0.034
+  alpha nocc = 13  HOMO = -0.426453211861013  LUMO = 0.0402397919817289
+  beta  nocc = 13  HOMO = -0.426032592872158  LUMO = 0.0402397919817289
+  HOMO = -0.426032592872  LUMO = 0.0402397919817  gap/eV = 12.68792
+cycle= 6 E= -154.024081131735  delta_E= -2.11e-05  |g|= 0.0016  |ddm|= 0.0124
+  alpha nocc = 13  HOMO = -0.42649486084705  LUMO = 0.0402511385011839
+  beta  nocc = 13  HOMO = -0.426288038019067  LUMO = 0.0402511385011839
+  HOMO = -0.426288038019  LUMO = 0.0402511385012  gap/eV = 12.69518
+cycle= 7 E= -154.024084457424  delta_E= -3.33e-06  |g|= 0.000805  |ddm|= 0.00462
+  alpha nocc = 13  HOMO = -0.426395987411539  LUMO = 0.0402500068467456
+  beta  nocc = 13  HOMO = -0.426339369966652  LUMO = 0.0402500068467456
+  HOMO = -0.426339369967  LUMO = 0.0402500068467  gap/eV = 12.69654
+cycle= 8 E= -154.024085626145  delta_E= -1.17e-06  |g|= 0.000313  |ddm|= 0.00261
+  alpha nocc = 13  HOMO = -0.426369398817783  LUMO = 0.0402537561451809
+  beta  nocc = 13  HOMO = -0.426363353760109  LUMO = 0.0402537561451809
+  HOMO = -0.42636335376  LUMO = 0.0402537561452  gap/eV = 12.69730
+cycle= 9 E= -154.024085818897  delta_E= -1.93e-07  |g|= 9.79e-05  |ddm|= 0.00111
+  alpha nocc = 13  HOMO = -0.426364256264396  LUMO = 0.0402530718338687
+  beta  nocc = 13  HOMO = -0.426364671695385  LUMO = 0.0402530718338687
+  HOMO = -0.426364256264  LUMO = 0.0402530718339  gap/eV = 12.69730
+cycle= 10 E= -154.024085836593  delta_E= -1.77e-08  |g|= 3.35e-05  |ddm|= 0.000358
+  alpha nocc = 13  HOMO = -0.426365010941577  LUMO = 0.0402529230814142
+  beta  nocc = 13  HOMO = -0.426365021154481  LUMO = 0.0402529230814142
+  HOMO = -0.426365010942  LUMO = 0.0402529230814  gap/eV = 12.69732
+cycle= 11 E= -154.024085838253  delta_E= -1.66e-09  |g|= 1.47e-05  |ddm|= 9.66e-05
+  alpha nocc = 13  HOMO = -0.426367001067124  LUMO = 0.0402529575040916
+  beta  nocc = 13  HOMO = -0.426366828442006  LUMO = 0.0402529575040916
+  HOMO = -0.426366828442  LUMO = 0.0402529575041  gap/eV = 12.69737
+cycle= 12 E= -154.024085838566  delta_E= -3.14e-10  |g|= 6.05e-06  |ddm|= 3.78e-05
+  alpha nocc = 13  HOMO = -0.426366312880859  LUMO = 0.0402530132601467
+  beta  nocc = 13  HOMO = -0.426366162718839  LUMO = 0.0402530132601467
+  HOMO = -0.426366162719  LUMO = 0.0402530132601  gap/eV = 12.69735
+cycle= 13 E= -154.024085838623  delta_E= -5.68e-11  |g|= 2.5e-06  |ddm|= 1.79e-05
+  alpha nocc = 13  HOMO = -0.426366656909739  LUMO = 0.040252974324209
+  beta  nocc = 13  HOMO = -0.426366573955747  LUMO = 0.040252974324209
+  HOMO = -0.426366573956  LUMO = 0.0402529743242  gap/eV = 12.69736
+Extra cycle  E= -154.024085838631  delta_E= -7.33e-12  |g|= 1.53e-06  |ddm|= 3.99e-06
+converged SCF energy = -154.024085838631  <S^2> = 2.2840396e-11  2S+1 = 1
+CASE phi=120.0, n_shells=1, active=[7, 8]
+
+======================================================================
+MP2-IN-DFT EMBEDDING WITH SPADE PARTITIONING
+======================================================================
+
+--- STEP 1: Running Full System DFT ---
+
+
+******** <class 'pyscf.df.df_jk.DFUKS'> ********
+method = DFUKS
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 200
+direct_scf = False
+chkfile to save SCF result = /tmp/tmpk2xtbzkr
+max_memory 4000 MB (current use 158 MB)
+number electrons alpha = 13  beta = 13
+XC library pyscf.dft.libxc version 7.0.0
+    S. Lehtola, C. Steigemann, M. J.T. Oliveira, and M. A.L. Marques.,  SoftwareX 7, 1–5 (2018)
+XC functionals = 0.5*HF+0.5*B88,0.6*LYP
+    A. D. Becke.,  Phys. Rev. A 38, 3098 (1988)
+    C. Lee, W. Yang, and R. G. Parr.,  Phys. Rev. B 37, 785 (1988)
+    B. Miehlich, A. Savin, H. Stoll, and H. Preuss.,  Chem. Phys. Lett. 157, 200 (1989)
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7f71288298a0>
+grids dens level: 3
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7f7128829e40>
+small_rho_cutoff = 0
+Set gradient conv threshold to 1e-05
+tot grids = 101168
+init E= -156.788629724118
+  alpha nocc = 13  HOMO = 0.100534072614419  LUMO = 0.182907340064314
+  beta  nocc = 13  HOMO = 0.0745295979648049  LUMO = 0.182907340064314
+  HOMO = 0.100534072614  LUMO = 0.182907340064  gap/eV = 2.24149
+cycle= 1 E= -154.352988346617  delta_E= 2.44  |g|= 0.61  |ddm|= 2.13
+  alpha nocc = 13  HOMO = -0.315092512286615  LUMO = -0.0228883620983886
+  beta  nocc = 13  HOMO = -0.313677560908076  LUMO = -0.0228883620983886
+  HOMO = -0.313677560908  LUMO = -0.0228883620984  gap/eV = 7.91278
+cycle= 2 E= -154.380384208886  delta_E= -0.0274  |g|= 0.661  |ddm|= 1.24
+  alpha nocc = 13  HOMO = -0.352754208803152  LUMO = 0.00359631622616874
+  beta  nocc = 13  HOMO = -0.351589412803744  LUMO = 0.00359631622616874
+  HOMO = -0.351589412804  LUMO = 0.00359631622617  gap/eV = 9.66510
+cycle= 3 E= -154.548909489516  delta_E= -0.169  |g|= 0.0536  |ddm|= 0.512
+  alpha nocc = 13  HOMO = -0.321131770331981  LUMO = 0.011215350973707
+  beta  nocc = 13  HOMO = -0.320441588032832  LUMO = 0.011215350973707
+  HOMO = -0.320441588033  LUMO = 0.0112153509737  gap/eV = 9.02484
+cycle= 4 E= -154.549574835288  delta_E= -0.000665  |g|= 0.0405  |ddm|= 0.0912
+  alpha nocc = 13  HOMO = -0.329120708194463  LUMO = 0.0112751985677342
+  beta  nocc = 13  HOMO = -0.328696204675179  LUMO = 0.0112751985677342
+  HOMO = -0.328696204675  LUMO = 0.0112751985677  gap/eV = 9.25109
+cycle= 5 E= -154.550184454362  delta_E= -0.00061  |g|= 0.00402  |ddm|= 0.0577
+  alpha nocc = 13  HOMO = -0.328415583169811  LUMO = 0.0113849350057116
+  beta  nocc = 13  HOMO = -0.328209465611884  LUMO = 0.0113849350057116
+  HOMO = -0.328209465612  LUMO = 0.0113849350057  gap/eV = 9.24083
+cycle= 6 E= -154.550194024909  delta_E= -9.57e-06  |g|= 0.00109  |ddm|= 0.00847
+  alpha nocc = 13  HOMO = -0.328512139512689  LUMO = 0.0114154862836813
+  beta  nocc = 13  HOMO = -0.328411744705839  LUMO = 0.0114154862836813
+  HOMO = -0.328411744706  LUMO = 0.0114154862837  gap/eV = 9.24717
+cycle= 7 E= -154.550195065362  delta_E= -1.04e-06  |g|= 0.000413  |ddm|= 0.00259
+  alpha nocc = 13  HOMO = -0.328487817789092  LUMO = 0.0113997621375503
+  beta  nocc = 13  HOMO = -0.328460040393157  LUMO = 0.0113997621375503
+  HOMO = -0.328460040393  LUMO = 0.0113997621376  gap/eV = 9.24806
+cycle= 8 E= -154.550195323604  delta_E= -2.58e-07  |g|= 0.000148  |ddm|= 0.00122
+  alpha nocc = 13  HOMO = -0.328462213014319  LUMO = 0.0114056214690521
+  beta  nocc = 13  HOMO = -0.328460234162907  LUMO = 0.0114056214690521
+  HOMO = -0.328460234163  LUMO = 0.0114056214691  gap/eV = 9.24822
+cycle= 9 E= -154.550195357224  delta_E= -3.36e-08  |g|= 3.64e-05  |ddm|= 0.000462
+  alpha nocc = 13  HOMO = -0.328462079606972  LUMO = 0.0114050280404072
+  beta  nocc = 13  HOMO = -0.328462499444068  LUMO = 0.0114050280404072
+  HOMO = -0.328462079607  LUMO = 0.0114050280404  gap/eV = 9.24826
+cycle= 10 E= -154.550195358864  delta_E= -1.64e-09  |g|= 1.33e-05  |ddm|= 9.61e-05
+  alpha nocc = 13  HOMO = -0.32846286818339  LUMO = 0.0114049375312106
+  beta  nocc = 13  HOMO = -0.32846314348587  LUMO = 0.0114049375312106
+  HOMO = -0.328462868183  LUMO = 0.0114049375312  gap/eV = 9.24827
+cycle= 11 E= -154.55019535901  delta_E= -1.46e-10  |g|= 5.57e-06  |ddm|= 2.14e-05
+  alpha nocc = 13  HOMO = -0.328462363861764  LUMO = 0.0114051922303808
+  beta  nocc = 13  HOMO = -0.328462452681187  LUMO = 0.0114051922303808
+  HOMO = -0.328462363862  LUMO = 0.0114051922304  gap/eV = 9.24827
+cycle= 12 E= -154.550195359033  delta_E= -2.38e-11  |g|= 2.59e-06  |ddm|= 8.9e-06
+  alpha nocc = 13  HOMO = -0.328462431419144  LUMO = 0.0114051568080562
+  beta  nocc = 13  HOMO = -0.328462463533953  LUMO = 0.0114051568080562
+  HOMO = -0.328462431419  LUMO = 0.0114051568081  gap/eV = 9.24827
+Extra cycle  E= -154.550195359036  delta_E= -2.73e-12  |g|= 2.36e-06  |ddm|= 4.3e-06
+converged SCF energy = -154.550195359036  <S^2> = 4.2970072e-12  2S+1 = 1
+Full DFT Energy (0.5*HF+0.5*B88,0.6*LYP): -154.55019536 Eh
+
+ --- Partitioning ---
+   [SPADE-Alpha] Active orbitals: 5 (Gap: 0.5301)
+
+--- Constructing Potentials ---
+tot grids = 101168
+
+--- Running MP2 in DFT Environment ---
+   [Embedded UMP2] Initializing UHF with Embedding Potential...
+
+
+******** <class 'pyscf.df.df_jk.DFUHF'> ********
+method = DFUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 200
+direct_scf = False
+chkfile to save SCF result = /tmp/tmpgnv7539i
+max_memory 4000 MB (current use 216 MB)
+number electrons alpha = 5  beta = 5
+Overwritten attributes  get_hcore get_veff  of <class 'pyscf.df.df_jk.DFUHF'>
+Set gradient conv threshold to 1e-05
+init E= -18.6449578920312
+  alpha nocc = 5  HOMO = -0.513428771698671  LUMO = 0.0341047405479456
+  beta  nocc = 5  HOMO = -0.513428801978321  LUMO = 0.0341047405479456
+  HOMO = -0.513428771699  LUMO = 0.0341047405479  gap/eV = 14.89915
+cycle= 1 E= -18.6445503086088  delta_E= 0.000408  |g|= 0.0115  |ddm|= 0.137
+  alpha nocc = 5  HOMO = -0.512312922423824  LUMO = 0.0340139646580886
+  beta  nocc = 5  HOMO = -0.512312931485482  LUMO = 0.0340139646580886
+  HOMO = -0.512312922424  LUMO = 0.0340139646581  gap/eV = 14.86631
+cycle= 2 E= -18.6459124024508  delta_E= -0.00136  |g|= 0.00462  |ddm|= 0.0331
+  alpha nocc = 5  HOMO = -0.509354202196761  LUMO = 0.0340304925842816
+  beta  nocc = 5  HOMO = -0.509354202874718  LUMO = 0.0340304925842816
+  HOMO = -0.509354202197  LUMO = 0.0340304925843  gap/eV = 14.78625
+cycle= 3 E= -18.6467850844953  delta_E= -0.000873  |g|= 0.00165  |ddm|= 0.00543
+  alpha nocc = 5  HOMO = -0.509990543482388  LUMO = 0.0340499430167402
+  beta  nocc = 5  HOMO = -0.509990539245226  LUMO = 0.0340499430167402
+  HOMO = -0.509990539245  LUMO = 0.0340499430167  gap/eV = 14.80410
+cycle= 4 E= -18.6470752211523  delta_E= -0.00029  |g|= 0.000297  |ddm|= 0.00491
+  alpha nocc = 5  HOMO = -0.510026403169771  LUMO = 0.0340580178134231
+  beta  nocc = 5  HOMO = -0.510026396792455  LUMO = 0.0340580178134231
+  HOMO = -0.510026396792  LUMO = 0.0340580178134  gap/eV = 14.80529
+cycle= 5 E= -18.647262073603  delta_E= -0.000187  |g|= 4.48e-05  |ddm|= 0.00185
+  alpha nocc = 5  HOMO = -0.510047983326992  LUMO = 0.0340589609559453
+  beta  nocc = 5  HOMO = -0.510047978393779  LUMO = 0.0340589609559453
+  HOMO = -0.510047978394  LUMO = 0.0340589609559  gap/eV = 14.80590
+cycle= 6 E= -18.647270564642  delta_E= -8.49e-06  |g|= 7.13e-06  |ddm|= 0.000209
+  alpha nocc = 5  HOMO = -0.510051427384219  LUMO = 0.0340588406753965
+  beta  nocc = 5  HOMO = -0.510051423290214  LUMO = 0.0340588406753965
+  HOMO = -0.51005142329  LUMO = 0.0340588406754  gap/eV = 14.80599
+cycle= 7 E= -18.6472708634549  delta_E= -2.99e-07  |g|= 1.83e-06  |ddm|= 2.51e-05
+  alpha nocc = 5  HOMO = -0.510051844478738  LUMO = 0.0340588429439292
+  beta  nocc = 5  HOMO = -0.510051841748808  LUMO = 0.0340588429439292
+  HOMO = -0.510051841749  LUMO = 0.0340588429439  gap/eV = 14.80601
+cycle= 8 E= -18.6472701950859  delta_E= 6.68e-07  |g|= 3.36e-07  |ddm|= 1.11e-05
+  alpha nocc = 5  HOMO = -0.51005184343289  LUMO = 0.0340588467736518
+  beta  nocc = 5  HOMO = -0.510051841803648  LUMO = 0.0340588467736518
+  HOMO = -0.510051841804  LUMO = 0.0340588467737  gap/eV = 14.80601
+cycle= 9 E= -18.6472702130239  delta_E= -1.79e-08  |g|= 6.9e-08  |ddm|= 3.82e-06
+  alpha nocc = 5  HOMO = -0.510051851739014  LUMO = 0.0340588516377529
+  beta  nocc = 5  HOMO = -0.510051850394174  LUMO = 0.0340588516377529
+  HOMO = -0.510051850394  LUMO = 0.0340588516378  gap/eV = 14.80601
+cycle= 10 E= -18.6472702153533  delta_E= -2.33e-09  |g|= 4.4e-08  |ddm|= 2.65e-06
+  alpha nocc = 5  HOMO = -0.510051851273424  LUMO = 0.0340588458037998
+  beta  nocc = 5  HOMO = -0.510051850500364  LUMO = 0.0340588458037998
+  HOMO = -0.5100518505  LUMO = 0.0340588458038  gap/eV = 14.80601
+cycle= 11 E= -18.647270216263  delta_E= -9.1e-10  |g|= 5.34e-08  |ddm|= 2.75e-06
+  alpha nocc = 5  HOMO = -0.510051853372286  LUMO = 0.034058849309257
+  beta  nocc = 5  HOMO = -0.510051852618691  LUMO = 0.034058849309257
+  HOMO = -0.510051852619  LUMO = 0.0340588493093  gap/eV = 14.80601
+cycle= 12 E= -18.6472702153037  delta_E= 9.59e-10  |g|= 3.3e-08  |ddm|= 7.83e-06
+  alpha nocc = 5  HOMO = -0.510051853069712  LUMO = 0.0340588453571256
+  beta  nocc = 5  HOMO = -0.510051852226933  LUMO = 0.0340588453571256
+  HOMO = -0.510051852227  LUMO = 0.0340588453571  gap/eV = 14.80601
+cycle= 13 E= -18.6472702162465  delta_E= -9.43e-10  |g|= 4.19e-08  |ddm|= 3.75e-06
+  alpha nocc = 5  HOMO = -0.510051852448345  LUMO = 0.0340588478411903
+  beta  nocc = 5  HOMO = -0.510051851792404  LUMO = 0.0340588478411903
+  HOMO = -0.510051851792  LUMO = 0.0340588478412  gap/eV = 14.80601
+cycle= 14 E= -18.6472702164454  delta_E= -1.99e-10  |g|= 3.65e-08  |ddm|= 1.22e-06
+  alpha nocc = 5  HOMO = -0.510051852024628  LUMO = 0.0340588416172903
+  beta  nocc = 5  HOMO = -0.51005185134138  LUMO = 0.0340588416172903
+  HOMO = -0.510051851341  LUMO = 0.0340588416173  gap/eV = 14.80601
+cycle= 15 E= -18.6472702165592  delta_E= -1.14e-10  |g|= 3.81e-08  |ddm|= 2.55e-06
+  alpha nocc = 5  HOMO = -0.51005185187336  LUMO = 0.0340588470143671
+  beta  nocc = 5  HOMO = -0.510051851268759  LUMO = 0.0340588470143671
+  HOMO = -0.510051851269  LUMO = 0.0340588470144  gap/eV = 14.80601
+cycle= 16 E= -18.6472702163044  delta_E= 2.55e-10  |g|= 3.87e-08  |ddm|= 4.2e-06
+  alpha nocc = 5  HOMO = -0.510051851157094  LUMO = 0.0340588490507599
+  beta  nocc = 5  HOMO = -0.510051850565599  LUMO = 0.0340588490507599
+  HOMO = -0.510051850566  LUMO = 0.0340588490508  gap/eV = 14.80601
+cycle= 17 E= -18.6472702165293  delta_E= -2.25e-10  |g|= 4.04e-08  |ddm|= 1.35e-06
+  alpha nocc = 5  HOMO = -0.510051850712347  LUMO = 0.0340588456181242
+  beta  nocc = 5  HOMO = -0.510051850185459  LUMO = 0.0340588456181242
+  HOMO = -0.510051850185  LUMO = 0.0340588456181  gap/eV = 14.80601
+cycle= 18 E= -18.6472702169745  delta_E= -4.45e-10  |g|= 3.84e-08  |ddm|= 3.69e-06
+  alpha nocc = 5  HOMO = -0.510051850704052  LUMO = 0.0340588502809023
+  beta  nocc = 5  HOMO = -0.510051850213205  LUMO = 0.0340588502809023
+  HOMO = -0.510051850213  LUMO = 0.0340588502809  gap/eV = 14.80601
+cycle= 19 E= -18.6472702170208  delta_E= -4.63e-11  |g|= 4.02e-08  |ddm|= 2.98e-06
+  alpha nocc = 5  HOMO = -0.51005185104135  LUMO = 0.034058848725112
+  beta  nocc = 5  HOMO = -0.510051850705825  LUMO = 0.034058848725112
+  HOMO = -0.510051850706  LUMO = 0.0340588487251  gap/eV = 14.80601
+Extra cycle  E= -18.6472702171576  delta_E= -1.37e-10  |g|= 4.08e-08  |ddm|= 2.79e-06
+converged SCF energy = -18.6472702171576  <S^2> = 7.9047879e-14  2S+1 = 1
+   [Embedded UMP2] UHF-in-DFT Reference Energy: -18.64727022
+   [Embedded UMP2] Performing Concentric Localization (n_shells=1)...
+   [CL] n_vir_eff = 110,  n_A_aos = 34
+   [CL] Shell 0: size = 34  | kernel remaining = 76
+   [CL] ── Tóm tắt ──────────────────────────────────────
+   [CL]   Shells được dùng  : 1  (max có thể = 1)
+   [CL]   Virtual giữ lại   : 34 / 110  (30.9%)
+   [CL]   Virtual bị loại   : 76  (kernel còn lại = 76)
+   [CL] ──────────────────────────────────────────────────
+   [CL] n_vir_eff = 110,  n_A_aos = 34
+   [CL] Shell 0: size = 34  | kernel remaining = 76
+   [CL] ── Tóm tắt ──────────────────────────────────────
+   [CL]   Shells được dùng  : 1  (max có thể = 1)
+   [CL]   Virtual giữ lại   : 34 / 110  (30.9%)
+   [CL]   Virtual bị loại   : 76  (kernel còn lại = 76)
+   [CL] ──────────────────────────────────────────────────
+   [Embedded UMP2] CL truncation done. NMO alpha=39, beta=39
+   [Embedded UMP2] Running UMP2 on the embedded reference...
+
+******** <class 'pyscf.mp.dfump2.DFUMP2'> ********
+nocc = (np.int64(5), np.int64(5)), nmo = (39, 39)
+frozen orbitals 0
+max_memory 4000 MB (current use 219 MB)
+E(DFUMP2) = -18.8856204505693  E_corr = -0.238350233411694
+E(SCS-DFUMP2) = -18.8822211364851  E_corr = -0.234950919327506
+E_corr(same-spin) = -0.0589261854998381
+E_corr(oppo-spin) = -0.179424047911855
+   [Embedded UMP2] E_corr = -0.23835023
+tot grids = 101168
+------------------------------------------------------------
+E_HF[A] (embedded reference)    : -41.17158607
+E_corr (MP2, A)                 : -0.23835023
+E_WF[A] = E_HF[A] + E_corr      : -41.40993631
+Baseline (Full - A)             : -113.15485891
+Orthogonality Correction        : 0.00000023
+------------------------------------------------------------
+Total MP2-in-DFT Energy         : -154.56479498 Eh
+Ref DFT Energy                  : -154.55019536 Eh
+Difference vs DFT               : -14599.63 uEh
+============================================================

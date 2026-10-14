@@ -9,6 +9,12 @@ from scan import read_xyz, rotate_oh, dihedral
 import json
 
 class GeometryTests(unittest.TestCase):
+    def test_starting_dihedrals(self):
+        _,eth = read_xyz(ROOT/'inputs/ethanol.xyz')
+        _,but = read_xyz(ROOT/'inputs/1_butanol.xyz')
+        self.assertAlmostEqual(dihedral(eth,[0,4,7,8]),0)
+        self.assertAlmostEqual(abs(dihedral(but,[7,10,13,14])),180)
+
     def test_rigid_scan(self):
         spec = json.loads((ROOT/'inputs/scan.json').read_text())
         for molecule in spec['molecules'].values():

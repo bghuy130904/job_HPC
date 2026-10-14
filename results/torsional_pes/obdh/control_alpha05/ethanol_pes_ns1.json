@@ -1,0 +1,137 @@
+{
+  "molecule": "Ethanol",
+  "method": "obdh",
+  "basis": "6-311++G(2d,p)",
+  "n_shells": 1,
+  "e_ref_hartree": -154.5883378508569,
+  "reference_angle": 180.0,
+  "config": {
+    "method": "obdh",
+    "molecule": "ethanol",
+    "label": "Ethanol",
+    "basis": "6-311++G(2d,p)",
+    "alpha": [
+      0.5,
+      0.5
+    ],
+    "xc_env": "0.5*HF+0.5*B88,0.5*LYP",
+    "symbols": [
+      "C",
+      "H",
+      "H",
+      "H",
+      "C",
+      "H",
+      "H",
+      "O",
+      "H"
+    ],
+    "coords": [
+      [
+        1.231,
+        0.0,
+        0.0
+      ],
+      [
+        1.571,
+        1.029,
+        0.0
+      ],
+      [
+        1.571,
+        -0.5145,
+        0.8909
+      ],
+      [
+        1.571,
+        -0.5145,
+        -0.8909
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        -0.347,
+        -0.5145,
+        0.8909
+      ],
+      [
+        -0.347,
+        -0.5145,
+        -0.8909
+      ],
+      [
+        -0.4472,
+        1.29,
+        0.0
+      ],
+      [
+        0.299,
+        1.878,
+        0.0
+      ]
+    ],
+    "dihedral": [
+      0,
+      4,
+      7,
+      8
+    ],
+    "active_atoms": [
+      7,
+      8
+    ],
+    "angles": [
+      0.0,
+      60.0,
+      90.0,
+      120.0,
+      180.0
+    ],
+    "shells": [
+      1
+    ],
+    "threads": 2,
+    "max_memory": 4000,
+    "scf_cycles": 200,
+    "scf_tol": 1e-10,
+    "ob_cycles": 300,
+    "ob_tol": 1e-08,
+    "mu": 1000000.0,
+    "angle_mode": "dihedral"
+  },
+  "scan": [
+    {
+      "phi": 0.0,
+      "energy_hartree": -154.5734943589193,
+      "e_rel_kcal": 9.314431819021525,
+      "status": "converged"
+    },
+    {
+      "phi": 60.0,
+      "energy_hartree": -154.57850884070422,
+      "e_rel_kcal": 6.167796991472654,
+      "status": "converged"
+    },
+    {
+      "phi": 90.0,
+      "energy_hartree": -154.57928626187135,
+      "e_rel_kcal": 5.679957843762028,
+      "status": "converged"
+    },
+    {
+      "phi": 120.0,
+      "energy_hartree": -154.58169035612306,
+      "e_rel_kcal": 4.171365924269561,
+      "status": "converged"
+    },
+    {
+      "phi": 180.0,
+      "energy_hartree": -154.5883378508569,
+      "e_rel_kcal": 0.0,
+      "status": "converged"
+    }
+  ]
+}

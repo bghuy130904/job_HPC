@@ -1,0 +1,700 @@
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/obmp2.py:391: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/obmp2_slow.py:376: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/obmp2_einsum.py:348: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/obmp2_cas.py:537: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/dfobmp2.py:416: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/dfobmp2_slow.py:421: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/kobmp2.py:449: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBMP/kuobmp2.py:1162: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBDF/krobdf.py:625: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+/workspace/scratch/14b5ca9fcc7a/pycmf/src/pycmf/OBDH/dft_obmp2.py:566: SyntaxWarning: invalid escape sequence '\d'
+  dm1[p,q] = <q_alpha^\dagger p_alpha> + <q_beta^\dagger p_beta>
+#INFO: **** input file is /workspace/scratch/14b5ca9fcc7a/job_HPC/benchmarks/torsional_pes/methods/shared/scan.py ****
+#!/usr/bin/env python3
+"""Rigid C2-C1-O-H torsion scan, retaining all atoms and the full AO basis."""
+import argparse
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import traceback
+
+ROOT = Path(__file__).resolve().parents[2]
+REPO = ROOT.parents[1]
+KCAL = 627.5094740631
+
+
+def write_json(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + '.tmp')
+    temp.write_text(json.dumps(data, indent=2, allow_nan=False) + '\n')
+    os.replace(temp, path)
+
+
+def read_xyz(path):
+    rows = Path(path).read_text().splitlines()
+    atoms = [line.split('#', 1)[0].split() for line in rows[2:] if line.strip()]
+    if len(atoms) != int(rows[0]) or any(len(row) != 4 for row in atoms):
+        raise ValueError('XYZ atom count or row format is invalid.')
+    symbols = [row[0] for row in atoms]
+    coords = [[float(x) for x in row[1:]] for row in atoms]
+    if not all(math.isfinite(x) for row in coords for x in row):
+        raise ValueError('Nonfinite coordinates.')
+    return symbols, coords
+
+
+def dihedral(coords, indices):
+    import numpy as np
+    p0, p1, p2, p3 = np.asarray(coords)[indices]
+    axis = p2 - p1
+    axis /= np.linalg.norm(axis)
+    v = p0 - p1
+    w = p3 - p2
+    v -= np.dot(v, axis) * axis
+    w -= np.dot(w, axis) * axis
+    return float(np.degrees(np.arctan2(np.dot(np.cross(axis, v), w), np.dot(v, w))))
+
+
+def rotate_oh(coords, indices, angle):
+    import numpy as np
+    coords = np.array(coords, dtype=float, copy=True)
+    _, c, o, h = indices
+    axis = coords[o] - coords[c]
+    axis /= np.linalg.norm(axis)
+    # Set the actual dihedral, rather than rotating by an offset from the XYZ.
+    theta = np.radians(angle - dihedral(coords, indices))
+    v = coords[h] - coords[o]
+    coords[h] = coords[o] + (v*np.cos(theta) + np.cross(axis, v)*np.sin(theta)
+                            + axis*np.dot(axis, v)*(1-np.cos(theta)))
+    actual = dihedral(coords, indices)
+    if abs((actual-angle+180) % 360-180) > 1e-8:
+        raise RuntimeError('Torsion construction failed.')
+    return coords
+
+
+def worker(config_path, phi, ns, point_path):
+    config = json.loads(Path(config_path).read_text())['config']
+    result = {'phi': phi, 'n_shells': ns, 'shell_label': ns-1}
+    start = time.monotonic()
+    try:
+        import numpy as np
+        import pyscf
+        from pyscf import gto, scf, lib
+        from pycmf.OBDH import OBDH_CL, main as ob_main, uobdh_embed, uobdh_solver, CL_embed
+        lib.num_threads(config['threads'])
+        scf_records = []
+        original_kernel = scf.hf.SCF.kernel
+
+        def checked_kernel(mf, *args, **kwargs):
+            # Apply user SCF controls to upstream full-system and embedded SCFs.
+            mf.max_cycle = config['scf_cycles']
+            mf.conv_tol = config['scf_tol']
+            energy = original_kernel(mf, *args, **kwargs)
+            scf_records.append({'class': type(mf).__name__, 'converged': bool(mf.converged),
+                                'energy_hartree': float(mf.e_tot)})
+            if not mf.converged:
+                raise RuntimeError(f'{type(mf).__name__} SCF did not converge.')
+            return energy
+
+        scf.hf.SCF.kernel = checked_kernel
+        coords = rotate_oh(config['coords'], config['dihedral'], phi)
+        mol = gto.M(atom=list(zip(config['symbols'], coords)), unit='Angstrom',
+                    basis=config['basis'], charge=0, spin=0, verbose=4,
+                    max_memory=config['max_memory'])
+        mf = scf.UHF(mol).density_fit()
+        mf.kernel()
+        if config['method'] == 'obdh':
+            calc = OBDH_CL(mf)
+            calc.alphaa = tuple(config['alpha'])
+            calc.niter = config['ob_cycles']
+            calc.thresh = config['ob_tol']
+            calc.second_order = True
+            calc.eval_IPEA = False
+            calc.mom_select = False
+        else:
+            sys.path.insert(0, str(REPO / 'shared'))
+            from mp2_embed import UMP2_CL
+            calc = UMP2_CL(mf, frozen=0)
+        calc.xc_env = config['xc_env']
+        calc.use_embed = True
+        calc.use_cl = True
+        calc.active_atoms = config['active_atoms']
+        calc.n_shells = ns
+        calc.mu = config['mu']
+        calc.max_memory = config['max_memory']
+        print(f'CASE phi={phi}, n_shells={ns}, active={calc.active_atoms}', flush=True)
+        energy = float(calc.kernel())
+        if not math.isfinite(energy):
+            raise RuntimeError('Nonfinite energy.')
+        if config['method'] == 'obdh' and not calc.converged:
+            raise RuntimeError('OBDH did not converge; energy not accepted.')
+        sources = [ob_main, uobdh_embed, uobdh_solver, CL_embed]
+        if config['method'] == 'mp2':
+            import mp2_embed
+            sources.append(mp2_embed)
+        result.update(status='converged', energy_hartree=energy,
+                      dihedral_degrees=dihedral(coords, config['dihedral']),
+                      pyscf_version=pyscf.__version__, scfs=scf_records,
+                      source_sha256={m.__name__: hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()
+                                     for m in sources})
+        if config['method'] == 'obdh':
+            result['nocc'] = [int(x) for x in calc.get_nocc()]
+            result['nmo'] = [int(x) for x in calc.get_nmo()]
+    except Exception as exc:
+        result.update(status='failed', error=str(exc))
+        traceback.print_exc()
+    result['runtime_seconds'] = time.monotonic()-start
+    write_json(point_path, result)
+    return 0 if result['status'] == 'converged' else 1
+
+
+def main(method=None):
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--config', type=Path, default=ROOT/'inputs/scan.json')
+    p.add_argument('--method', choices=['obdh','mp2'], default=method, required=method is None)
+    p.add_argument('--molecule', choices=['ethanol','1-butanol'], required=True)
+    p.add_argument('--basis')
+    p.add_argument('--alpha', type=float, nargs=2)
+    p.add_argument('--xc-env', help='Environment and upstream OBDH subsystem XC. Default matched DH-BLYP.')
+    p.add_argument('--angles', type=float, nargs='+')
+    p.add_argument('--shells', type=int, nargs='+', choices=[1,2,3])
+    p.add_argument('--threads', type=int, default=1)
+    p.add_argument('--max-memory', type=float, default=4000)
+    p.add_argument('--scf-cycles', type=int, default=200)
+    p.add_argument('--scf-tol', type=float, default=1e-10)
+    p.add_argument('--ob-cycles', type=int, default=300)
+    p.add_argument('--ob-tol', type=float, default=1e-8)
+    p.add_argument('--mu', type=float, default=1e6)
+    p.add_argument('--output-dir', type=Path, required=True)
+    p.add_argument('--resume', action='store_true')
+    p.add_argument('--dry-run', action='store_true')
+    a = p.parse_args()
+    spec = json.loads(a.config.read_text())
+    molecule = spec['molecules'][a.molecule]
+    symbols, coords = read_xyz(a.config.parent/molecule['xyz'])
+    alpha = a.alpha or spec['alpha']
+    xc = a.xc_env or (f'{alpha[0]}*HF+{1-alpha[0]}*B88,{1-alpha[1]}*LYP' if a.alpha else spec['xc_env'])
+    angles = sorted(set(a.angles or spec['angles']) | {180.0})
+    shells = sorted(set(a.shells or spec['n_shells']))
+    if any(not math.isfinite(x) or not 0 <= x <= 180 for x in angles):
+        p.error('Angles must be finite and in [0,180].')
+    if any(not math.isfinite(x) or not 0 <= x <= 1 for x in alpha):
+        p.error('Alpha must lie in [0,1].')
+    if min(a.threads,a.scf_cycles,a.ob_cycles) < 1 or any(not math.isfinite(x) or x<=0 for x in
+            [a.scf_tol,a.ob_tol,a.max_memory,a.mu]):
+        p.error('Counts, tolerances, memory and mu must be positive.')
+    config = dict(method=a.method, molecule=a.molecule, label=molecule['label'],
+                  basis=a.basis or spec['basis'], alpha=alpha, xc_env=xc,
+                  symbols=symbols, coords=coords, dihedral=molecule['dihedral'],
+                  active_atoms=molecule['active_atoms'], angles=angles, shells=shells,
+                  threads=a.threads,max_memory=a.max_memory,scf_cycles=a.scf_cycles,
+                  scf_tol=a.scf_tol,ob_cycles=a.ob_cycles,ob_tol=a.ob_tol,mu=a.mu)
+    if a.dry_run:
+        print(json.dumps(config, indent=2))
+        return 0
+    out = a.output_dir.resolve()
+    out.mkdir(parents=True,exist_ok=True)
+    meta_path = out/f'{a.molecule}_{a.method}.meta.json'
+    meta = {'config': config, 'points': {}}
+    if meta_path.exists():
+        if not a.resume:
+            p.error('Run exists; use --resume or another output directory.')
+        meta = json.loads(meta_path.read_text())
+        if meta['config'] != config:
+            p.error('Resume configuration differs from the saved run.')
+    write_json(meta_path,meta)
+    logs = out/'logs'
+    logs.mkdir(exist_ok=True)
+    env = os.environ.copy()
+    for name in ['OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','MKL_NUM_THREADS']:
+        env[name] = str(a.threads)
+    failures = 0
+    for ns in shells:
+        for phi in angles:
+            key = f'ns{ns}_phi{phi:g}'
+            if meta['points'].get(key,{}).get('status') == 'converged':
+                continue
+            log_path = logs/f'{a.molecule}_{a.method}_{key}.log'
+            point_path = log_path.with_suffix('.json')
+            point_path.unlink(missing_ok=True)
+            print(f'RUN {a.molecule} {a.method} {key}: {log_path}',flush=True)
+            with log_path.open('w') as log:
+                proc = subprocess.run([sys.executable,'-u',str(Path(__file__).resolve()),
+                                       '--worker',str(meta_path),str(phi),str(ns),str(point_path)],
+                                      stdout=log,stderr=subprocess.STDOUT,env=env)
+            result = json.loads(point_path.read_text()) if point_path.exists() else dict(
+                status='failed',error=f'Worker exited {proc.returncode} without a result.')
+            if proc.returncode != 0:
+                result['status'] = 'failed'
+            result['returncode'] = proc.returncode
+            meta['points'][key] = result
+            failures += result['status'] != 'converged'
+            write_json(meta_path,meta)
+            # Keep the legacy plotting schema, adding absolute energies and diagnostics.
+            ref = meta['points'].get(f'ns{ns}_phi180',{})
+            e_ref = ref.get('energy_hartree') if ref.get('status') == 'converged' else None
+            scan = []
+            for angle in angles:
+                pt = meta['points'].get(f'ns{ns}_phi{angle:g}',{})
+                energy = pt.get('energy_hartree') if pt.get('status') == 'converged' else None
+                scan.append(dict(phi=angle,energy_hartree=energy,
+                                 e_rel_kcal=(energy-e_ref)*KCAL if energy is not None and e_ref is not None else None,
+                                 status=pt.get('status','pending')))
+            suffix = '_mp2' if a.method == 'mp2' else ''
+            write_json(out/f'{a.molecule}{suffix}_pes_ns{ns}.json',dict(
+                molecule=molecule['label'],method=a.method,basis=config['basis'],n_shells=ns,
+                e_ref_hartree=e_ref,reference_angle=180,config=config,scan=scan))
+            print(f'{result["status"]}: {result.get("energy_hartree",result.get("error"))}',flush=True)
+    return 1 if failures else 0
+
+
+if __name__ == '__main__':
+    if len(sys.argv)>1 and sys.argv[1]=='--worker':
+        sys.exit(worker(sys.argv[2],float(sys.argv[3]),int(sys.argv[4]),sys.argv[5]))
+    sys.exit(main())
+#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='13244ea10214', release='6.18.44', version='#1 SMP Sat Sep 26 20:02:31 UTC 2026', machine='x86_64')  Threads 2
+Python 3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]
+numpy 2.3.5  scipy 1.17.0  h5py 3.16.0
+Date: Wed Oct 14 01:31:38 2026
+PySCF version 2.14.0
+PySCF path  /root/.local/lib/python3.12/site-packages/pyscf
+
+[CONFIG] conf_file None
+[INPUT] verbose = 4
+[INPUT] num. atoms = 9
+[INPUT] num. electrons = 26
+[INPUT] charge = 0
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = Angstrom
+[INPUT] Symbol           X                Y                Z      unit          X                Y                Z       unit  Magmom
+[INPUT]  1 C      1.231000000000   0.000000000000   0.000000000000 AA    2.326252859340   0.000000000000   0.000000000000 Bohr   0.0
+[INPUT]  2 H      1.571000000000   1.029000000000   0.000000000000 AA    2.968759741692   1.944528182177   0.000000000000 Bohr   0.0
+[INPUT]  3 H      1.571000000000  -0.514500000000   0.890900000000 AA    2.968759741692  -0.972264091089   1.683557004375 Bohr   0.0
+[INPUT]  4 H      1.571000000000  -0.514500000000  -0.890900000000 AA    2.968759741692  -0.972264091089  -1.683557004375 Bohr   0.0
+[INPUT]  5 C      0.000000000000   0.000000000000   0.000000000000 AA    0.000000000000   0.000000000000   0.000000000000 Bohr   0.0
+[INPUT]  6 H     -0.347000000000  -0.514500000000   0.890900000000 AA   -0.655734965224  -0.972264091089   1.683557004375 Bohr   0.0
+[INPUT]  7 H     -0.347000000000  -0.514500000000  -0.890900000000 AA   -0.655734965224  -0.972264091089  -1.683557004375 Bohr   0.0
+[INPUT]  8 O     -0.447200000000   1.290000000000   0.000000000000 AA   -0.845085522905   2.437746700689   0.000000000000 Bohr   0.0
+[INPUT]  9 H      0.299000000000   1.878000000000   0.000000000000 AA    0.565028111245   3.548905661933   0.000000000000 Bohr   0.0
+
+nuclear repulsion = 89.7222955929232
+number of shells = 63
+number of NR pGTOs = 174
+number of NR cGTOs = 123
+basis = 6-311++G(2d,p)
+ecp = {}
+CPU time:         1.28
+
+
+******** <class 'pyscf.df.df_jk.DFUHF'> ********
+method = DFUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 200
+direct_scf = False
+chkfile to save SCF result = /tmp/tmpghl6k1hw
+max_memory 4000 MB (current use 2 MB)
+number electrons alpha = 13  beta = 13
+Set gradient conv threshold to 1e-05
+******** <class 'pyscf.df.df.DF'> ********
+auxbasis = None
+max_memory = 4000
+Default auxbasis aug-cc-pvtz-jkfit is used for C 6-311++G(2d,p)
+Default auxbasis aug-cc-pvtz-jkfit is used for H 6-311++G(2d,p)
+Default auxbasis aug-cc-pvtz-jkfit is used for O 6-311++G(2d,p)
+init E= -157.34030371007
+  alpha nocc = 13  HOMO = 0.137407640102218  LUMO = 0.222671082773761
+  beta  nocc = 13  HOMO = 0.0972017054319281  LUMO = 0.222671082773761
+  HOMO = 0.137407640102  LUMO = 0.222671082774  gap/eV = 2.32014
+cycle= 1 E= -153.723056065488  delta_E= 3.62  |g|= 0.703  |ddm|= 2.09
+  alpha nocc = 13  HOMO = -0.47530151684683  LUMO = 0.0185911483190644
+  beta  nocc = 13  HOMO = -0.471883529505615  LUMO = 0.0185911483190644
+  HOMO = -0.471883529506  LUMO = 0.0185911483191  gap/eV = 13.34650
+cycle= 2 E= -153.938482291207  delta_E= -0.215  |g|= 0.435  |ddm|= 1.27
+  alpha nocc = 13  HOMO = -0.432099125813831  LUMO = 0.0377336846263219
+  beta  nocc = 13  HOMO = -0.430005964033089  LUMO = 0.0377336846263219
+  HOMO = -0.430005964033  LUMO = 0.0377336846263  gap/eV = 12.72784
+cycle= 3 E= -154.013811323786  delta_E= -0.0753  |g|= 0.0486  |ddm|= 0.304
+  alpha nocc = 13  HOMO = -0.410996987404779  LUMO = 0.0420287123595304
+  beta  nocc = 13  HOMO = -0.409417252491075  LUMO = 0.0420287123595304
+  HOMO = -0.409417252491  LUMO = 0.0420287123595  gap/eV = 12.28447
+cycle= 4 E= -154.015623597182  delta_E= -0.00181  |g|= 0.0208  |ddm|= 0.112
+  alpha nocc = 13  HOMO = -0.416421942764828  LUMO = 0.0420152590413841
+  beta  nocc = 13  HOMO = -0.415407754089266  LUMO = 0.0420152590413841
+  HOMO = -0.415407754089  LUMO = 0.0420152590414  gap/eV = 12.44711
+cycle= 5 E= -154.015831020981  delta_E= -0.000207  |g|= 0.00541  |ddm|= 0.0283
+  alpha nocc = 13  HOMO = -0.415680927860453  LUMO = 0.0418689852847112
+  beta  nocc = 13  HOMO = -0.415130763668035  LUMO = 0.0418689852847112
+  HOMO = -0.415130763668  LUMO = 0.0418689852847  gap/eV = 12.43560
+cycle= 6 E= -154.015854897318  delta_E= -2.39e-05  |g|= 0.00162  |ddm|= 0.0151
+  alpha nocc = 13  HOMO = -0.415687906903802  LUMO = 0.0418669852020417
+  beta  nocc = 13  HOMO = -0.415421114236143  LUMO = 0.0418669852020417
+  HOMO = -0.415421114236  LUMO = 0.041866985202  gap/eV = 12.44344
+cycle= 7 E= -154.015858586472  delta_E= -3.69e-06  |g|= 0.000815  |ddm|= 0.00442
+  alpha nocc = 13  HOMO = -0.415550246276599  LUMO = 0.0418701662132239
+  beta  nocc = 13  HOMO = -0.415480599590854  LUMO = 0.0418701662132239
+  HOMO = -0.415480599591  LUMO = 0.0418701662132  gap/eV = 12.44515
+cycle= 8 E= -154.015859823326  delta_E= -1.24e-06  |g|= 0.000299  |ddm|= 0.0023
+  alpha nocc = 13  HOMO = -0.41552909262041  LUMO = 0.0418739263509759
+  beta  nocc = 13  HOMO = -0.415518888382287  LUMO = 0.0418739263509759
+  HOMO = -0.415518888382  LUMO = 0.041873926351  gap/eV = 12.44629
+cycle= 9 E= -154.015859982061  delta_E= -1.59e-07  |g|= 9.67e-05  |ddm|= 0.000914
+  alpha nocc = 13  HOMO = -0.41552152529917  LUMO = 0.0418728958997949
+  beta  nocc = 13  HOMO = -0.415521324038433  LUMO = 0.0418728958997949
+  HOMO = -0.415521324038  LUMO = 0.0418728958998  gap/eV = 12.44633
+cycle= 10 E= -154.015859998292  delta_E= -1.62e-08  |g|= 3.08e-05  |ddm|= 0.000339
+  alpha nocc = 13  HOMO = -0.415521819684326  LUMO = 0.0418729021014224
+  beta  nocc = 13  HOMO = -0.415521582574915  LUMO = 0.0418729021014224
+  HOMO = -0.415521582575  LUMO = 0.0418729021014  gap/eV = 12.44634
+cycle= 11 E= -154.015859999779  delta_E= -1.49e-09  |g|= 1.25e-05  |ddm|= 9.88e-05
+  alpha nocc = 13  HOMO = -0.415523322864018  LUMO = 0.0418728277868215
+  beta  nocc = 13  HOMO = -0.415522986936466  LUMO = 0.0418728277868215
+  HOMO = -0.415522986936  LUMO = 0.0418728277868  gap/eV = 12.44637
+cycle= 12 E= -154.015860000005  delta_E= -2.26e-10  |g|= 5.01e-06  |ddm|= 3.3e-05
+  alpha nocc = 13  HOMO = -0.415522835337192  LUMO = 0.0418728448288007
+  beta  nocc = 13  HOMO = -0.415522637781145  LUMO = 0.0418728448288007
+  HOMO = -0.415522637781  LUMO = 0.0418728448288  gap/eV = 12.44637
+cycle= 13 E= -154.015860000043  delta_E= -3.72e-11  |g|= 2.06e-06  |ddm|= 1.64e-05
+  alpha nocc = 13  HOMO = -0.415522874584489  LUMO = 0.0418728386386543
+  beta  nocc = 13  HOMO = -0.415522764924347  LUMO = 0.0418728386386543
+  HOMO = -0.415522764924  LUMO = 0.0418728386387  gap/eV = 12.44637
+Extra cycle  E= -154.015860000048  delta_E= -5.43e-12  |g|= 1.31e-06  |ddm|= 3.33e-06
+converged SCF energy = -154.015860000048  <S^2> = 2.279954e-11  2S+1 = 1
+CASE phi=0.0, n_shells=1, active=[7, 8]
+
+======================================================================
+OBDH-IN-DFT EMBEDDING WITH SPADE PARTITIONING
+======================================================================
+
+--- STEP 1: Running Full System DFT ---
+
+
+******** <class 'pyscf.df.df_jk.DFUKS'> ********
+method = DFUKS
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 200
+direct_scf = False
+chkfile to save SCF result = /tmp/tmp1ebn6fan
+max_memory 4000 MB (current use 2 MB)
+number electrons alpha = 13  beta = 13
+XC library pyscf.dft.libxc version 7.0.0
+    S. Lehtola, C. Steigemann, M. J.T. Oliveira, and M. A.L. Marques.,  SoftwareX 7, 1–5 (2018)
+XC functionals = 0.5*HF+0.5*B88,0.6*LYP
+    A. D. Becke.,  Phys. Rev. A 38, 3098 (1988)
+    C. Lee, W. Yang, and R. G. Parr.,  Phys. Rev. B 37, 785 (1988)
+    B. Miehlich, A. Savin, H. Stoll, and H. Preuss.,  Chem. Phys. Lett. 157, 200 (1989)
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7f6f8b4f99e0>
+grids dens level: 3
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7f6f8b4f9f80>
+small_rho_cutoff = 0
+Set gradient conv threshold to 1e-05
+tot grids = 101168
+init E= -156.898600844172
+  alpha nocc = 13  HOMO = 0.121950067038401  LUMO = 0.201032109596319
+  beta  nocc = 13  HOMO = 0.0962170124897632  LUMO = 0.201032109596319
+  HOMO = 0.121950067038  LUMO = 0.201032109596  gap/eV = 2.15193
+cycle= 1 E= -154.310935449131  delta_E= 2.59  |g|= 0.658  |ddm|= 2.07
+  alpha nocc = 13  HOMO = -0.320524687473906  LUMO = -0.0215516755719859
+  beta  nocc = 13  HOMO = -0.319007751260745  LUMO = -0.0215516755719859
+  HOMO = -0.319007751261  LUMO = -0.021551675572  gap/eV = 8.09419
+cycle= 2 E= -154.341363982868  delta_E= -0.0304  |g|= 0.718  |ddm|=  1.3
+  alpha nocc = 13  HOMO = -0.346646902936627  LUMO = 0.00626383176491309
+  beta  nocc = 13  HOMO = -0.345545581324703  LUMO = 0.00626383176491309
+  HOMO = -0.345545581325  LUMO = 0.00626383176491  gap/eV = 9.57322
+cycle= 3 E= -154.54104710116  delta_E= -0.2  |g|= 0.0622  |ddm|= 0.416
+  alpha nocc = 13  HOMO = -0.311186120627177  LUMO = 0.014080346699349
+  beta  nocc = 13  HOMO = -0.310407595283994  LUMO = 0.014080346699349
+  HOMO = -0.310407595284  LUMO = 0.0140803466993  gap/eV = 8.82977
+cycle= 4 E= -154.541963203805  delta_E= -0.000916  |g|= 0.0452  |ddm|= 0.0973
+  alpha nocc = 13  HOMO = -0.319295095408609  LUMO = 0.0145948143746415
+  beta  nocc = 13  HOMO = -0.318795168273358  LUMO = 0.0145948143746415
+  HOMO = -0.318795168273  LUMO = 0.0145948143746  gap/eV = 9.07200
+cycle= 5 E= -154.542711787151  delta_E= -0.000749  |g|= 0.00419  |ddm|= 0.0331
+  alpha nocc = 13  HOMO = -0.318481142910237  LUMO = 0.0147573858184911
+  beta  nocc = 13  HOMO = -0.318234834734934  LUMO = 0.0147573858184911
+  HOMO = -0.318234834735  LUMO = 0.0147573858185  gap/eV = 9.06118
+cycle= 6 E= -154.542722652381  delta_E= -1.09e-05  |g|= 0.00101  |ddm|= 0.0103
+  alpha nocc = 13  HOMO = -0.318603760719874  LUMO = 0.0147517841373311
+  beta  nocc = 13  HOMO = -0.318488737837963  LUMO = 0.0147517841373311
+  HOMO = -0.318488737838  LUMO = 0.0147517841373  gap/eV = 9.06794
+cycle= 7 E= -154.542723722396  delta_E= -1.07e-06  |g|= 0.000417  |ddm|= 0.00207
+  alpha nocc = 13  HOMO = -0.318548966883409  LUMO = 0.014749599298541
+  beta  nocc = 13  HOMO = -0.318518882401605  LUMO = 0.014749599298541
+  HOMO = -0.318518882402  LUMO = 0.0147495992985  gap/eV = 9.06870
+cycle= 8 E= -154.542723987124  delta_E= -2.65e-07  |g|= 0.000142  |ddm|= 0.000997
+  alpha nocc = 13  HOMO = -0.318527886527956  LUMO = 0.0147501067680004
+  beta  nocc = 13  HOMO = -0.318525417890342  LUMO = 0.0147501067680004
+  HOMO = -0.31852541789  LUMO = 0.014750106768  gap/eV = 9.06889
+cycle= 9 E= -154.542724016605  delta_E= -2.95e-08  |g|= 3.07e-05  |ddm|= 0.000371
+  alpha nocc = 13  HOMO = -0.318528971581287  LUMO = 0.0147501779847236
+  beta  nocc = 13  HOMO = -0.31852914221507  LUMO = 0.0147501779847236
+  HOMO = -0.318528971581  LUMO = 0.0147501779847  gap/eV = 9.06899
+cycle= 10 E= -154.542724017903  delta_E= -1.3e-09  |g|= 8.36e-06  |ddm|= 8e-05
+  alpha nocc = 13  HOMO = -0.31852845653102  LUMO = 0.0147505300704125
+  beta  nocc = 13  HOMO = -0.318528549828219  LUMO = 0.0147505300704125
+  HOMO = -0.318528456531  LUMO = 0.0147505300704  gap/eV = 9.06898
+cycle= 11 E= -154.542724017994  delta_E= -9.11e-11  |g|= 2.42e-06  |ddm|= 2.14e-05
+  alpha nocc = 13  HOMO = -0.318528169147729  LUMO = 0.0147505976453509
+  beta  nocc = 13  HOMO = -0.318528184730415  LUMO = 0.0147505976453509
+  HOMO = -0.318528169148  LUMO = 0.0147505976454  gap/eV = 9.06898
+Extra cycle  E= -154.542724018  delta_E= -5.88e-12  |g|= 1.2e-06  |ddm|= 4.39e-06
+converged SCF energy = -154.542724018  <S^2> = 9.622525e-12  2S+1 = 1
+Full DFT Energy: -154.54272402 Eh
+
+ --- Partitioning ---
+   [SPADE-Alpha] Active orbitals: 5 (Gap: 0.5141)
+   [SPADE-Beta] Active orbitals: 5 (Gap: 0.5141)
+
+--- Constructing Potentials ---
+tot grids = 101168
+
+--- Running OBDH in DFT Environment ---
+   [Embedded UOBMP2] Initializing UHF with Embedding Potential...
+
+
+******** <class 'pyscf.df.df_jk.DFUHF'> ********
+method = DFUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 200
+direct_scf = False
+chkfile to save SCF result = /tmp/tmp4ttf6nxd
+max_memory 4000 MB (current use 2 MB)
+number electrons alpha = 5  beta = 5
+Overwritten attributes  get_veff get_hcore  of <class 'pyscf.df.df_jk.DFUHF'>
+Set gradient conv threshold to 1e-05
+init E= -18.2896933841974
+  alpha nocc = 5  HOMO = -0.510536882505569  LUMO = 0.0330802670510594
+  beta  nocc = 5  HOMO = -0.510536963188056  LUMO = 0.0330802670510594
+  HOMO = -0.510536882506  LUMO = 0.0330802670511  gap/eV = 14.79258
+cycle= 1 E= -18.286744112933  delta_E= 0.00295  |g|= 0.0114  |ddm|= 0.0915
+  alpha nocc = 5  HOMO = -0.509226065991015  LUMO = 0.0328724511715923
+  beta  nocc = 5  HOMO = -0.509226097114212  LUMO = 0.0328724511715923
+  HOMO = -0.509226065991  LUMO = 0.0328724511716  gap/eV = 14.75125
+cycle= 2 E= -18.2877782762388  delta_E= -0.00103  |g|= 0.0045  |ddm|= 0.0176
+  alpha nocc = 5  HOMO = -0.506384802951576  LUMO = 0.0328605817228889
+  beta  nocc = 5  HOMO = -0.506384813910945  LUMO = 0.0328605817228889
+  HOMO = -0.506384802952  LUMO = 0.0328605817229  gap/eV = 14.67361
+cycle= 3 E= -18.289028916146  delta_E= -0.00125  |g|= 0.0017  |ddm|= 0.00414
+  alpha nocc = 5  HOMO = -0.507054012334809  LUMO = 0.0328757584121614
+  beta  nocc = 5  HOMO = -0.507054011585087  LUMO = 0.0328757584121614
+  HOMO = -0.507054011585  LUMO = 0.0328757584122  gap/eV = 14.69224
+cycle= 4 E= -18.2893001940998  delta_E= -0.000271  |g|= 0.000322  |ddm|= 0.00218
+  alpha nocc = 5  HOMO = -0.507100983657455  LUMO = 0.0328834584162538
+  beta  nocc = 5  HOMO = -0.507100976033726  LUMO = 0.0328834584162538
+  HOMO = -0.507100976034  LUMO = 0.0328834584163  gap/eV = 14.69372
+cycle= 5 E= -18.2895540159837  delta_E= -0.000254  |g|= 4.7e-05  |ddm|= 0.000801
+  alpha nocc = 5  HOMO = -0.50712473293396  LUMO = 0.0328846874899992
+  beta  nocc = 5  HOMO = -0.507124725989495  LUMO = 0.0328846874899992
+  HOMO = -0.507124725989  LUMO = 0.03288468749  gap/eV = 14.69440
+cycle= 6 E= -18.289570222256  delta_E= -1.62e-05  |g|= 6.55e-06  |ddm|= 0.000137
+  alpha nocc = 5  HOMO = -0.507127777848538  LUMO = 0.0328845670445882
+  beta  nocc = 5  HOMO = -0.507127772052897  LUMO = 0.0328845670445882
+  HOMO = -0.507127772053  LUMO = 0.0328845670446  gap/eV = 14.69448
+cycle= 7 E= -18.2895715638638  delta_E= -1.34e-06  |g|= 1.61e-06  |ddm|= 1.89e-05
+  alpha nocc = 5  HOMO = -0.507128055716578  LUMO = 0.0328845706442925
+  beta  nocc = 5  HOMO = -0.507128051825092  LUMO = 0.0328845706442925
+  HOMO = -0.507128051825  LUMO = 0.0328845706443  gap/eV = 14.69449
+cycle= 8 E= -18.2895709444144  delta_E= 6.19e-07  |g|= 2.75e-07  |ddm|= 3.89e-06
+  alpha nocc = 5  HOMO = -0.507128050306562  LUMO = 0.0328845665720528
+  beta  nocc = 5  HOMO = -0.507128047500707  LUMO = 0.0328845665720528
+  HOMO = -0.507128047501  LUMO = 0.0328845665721  gap/eV = 14.69449
+cycle= 9 E= -18.2895709365214  delta_E= 7.89e-09  |g|= 4.47e-08  |ddm|= 3.3e-06
+  alpha nocc = 5  HOMO = -0.507128057090419  LUMO = 0.0328845676233311
+  beta  nocc = 5  HOMO = -0.50712805513546  LUMO = 0.0328845676233311
+  HOMO = -0.507128055135  LUMO = 0.0328845676233  gap/eV = 14.69449
+cycle= 10 E= -18.2895709280601  delta_E= 8.46e-09  |g|= 3.48e-08  |ddm|= 2.66e-06
+  alpha nocc = 5  HOMO = -0.507128057184833  LUMO = 0.032884570885874
+  beta  nocc = 5  HOMO = -0.50712805537032  LUMO = 0.032884570885874
+  HOMO = -0.50712805537  LUMO = 0.0328845708859  gap/eV = 14.69449
+cycle= 11 E= -18.289570927411  delta_E= 6.49e-10  |g|= 2.96e-08  |ddm|= 1.93e-06
+  alpha nocc = 5  HOMO = -0.507128058565989  LUMO = 0.032884562389712
+  beta  nocc = 5  HOMO = -0.507128056795878  LUMO = 0.032884562389712
+  HOMO = -0.507128056796  LUMO = 0.0328845623897  gap/eV = 14.69449
+cycle= 12 E= -18.2895709265363  delta_E= 8.75e-10  |g|= 2.72e-08  |ddm|= 4.22e-06
+  alpha nocc = 5  HOMO = -0.507128058454288  LUMO = 0.032884565000412
+  beta  nocc = 5  HOMO = -0.507128056668325  LUMO = 0.032884565000412
+  HOMO = -0.507128056668  LUMO = 0.0328845650004  gap/eV = 14.69449
+cycle= 13 E= -18.2895709272286  delta_E= -6.92e-10  |g|= 2.53e-08  |ddm|= 3.18e-06
+  alpha nocc = 5  HOMO = -0.50712805798431  LUMO = 0.0328845636987739
+  beta  nocc = 5  HOMO = -0.507128056500861  LUMO = 0.0328845636987739
+  HOMO = -0.507128056501  LUMO = 0.0328845636988  gap/eV = 14.69449
+cycle= 14 E= -18.289570927315  delta_E= -8.64e-11  |g|= 2.77e-08  |ddm|= 2.25e-06
+  alpha nocc = 5  HOMO = -0.507128056830965  LUMO = 0.0328845580082997
+  beta  nocc = 5  HOMO = -0.507128055490845  LUMO = 0.0328845580082997
+  HOMO = -0.507128055491  LUMO = 0.0328845580083  gap/eV = 14.69449
+Extra cycle  E= -18.2895709270496  delta_E= 2.65e-10  |g|= 2.95e-08  |ddm|= 3.37e-06
+converged SCF energy = -18.2895709270496  <S^2> = 2.6023628e-13  2S+1 = 1
+   [Embedded UOBMP2] UHF Reference Energy: -18.28957093
+   [Embedded UOBMP2] Performing Concentric Localization (n_shells=1)...
+   [CL] n_vir_eff (a,b) = [110, 110], shell size for both spin = 34
+   [CL] n_vir_eff = 110,  n_A_aos = 34
+   [CL] Shell 0: size = 34  | kernel remaining = 76
+   [CL] ── Tóm tắt ──────────────────────────────────────
+   [CL]   Shells được dùng  : 1  (max có thể = 1)
+   [CL]   Virtual giữ lại   : 34 / 110  (30.9%)
+   [CL]   Virtual bị loại   : 76  (kernel còn lại = 76)
+   [CL] ──────────────────────────────────────────────────
+   [CL] n_vir_eff = 110,  n_A_aos = 34
+   [CL] Shell 0: size = 34  | kernel remaining = 76
+   [CL] ── Tóm tắt ──────────────────────────────────────
+   [CL]   Shells được dùng  : 1  (max có thể = 1)
+   [CL]   Virtual giữ lại   : 34 / 110  (30.9%)
+   [CL]   Virtual bị loại   : 76  (kernel còn lại = 76)
+   [CL] ──────────────────────────────────────────────────
+   [Embedded UOBMP2] CL truncation done. NMO alpha=39, beta=39
+   [Embedded UOBMP2] Running DIIS...
+tot grids = 101168
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.06 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.32 sec, wall time      0.09 sec
+    CPU time for second BCH      0.05 sec, wall time      0.01 sec
+Iter 0: E_tot=-41.320570628790, E_corr=-0.094876516194, dE=inf, df_ia=1.14067595e-01, dRMS=1.33774192e-01
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.06 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.34 sec, wall time      0.10 sec
+    CPU time for second BCH      0.03 sec, wall time      0.01 sec
+Iter 1: E_tot=-41.290250912377, E_corr=-0.094588847431, dE=3.03197164e-02, df_ia=1.26783494e-02, dRMS=1.48686922e-02
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.05 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.31 sec, wall time      0.09 sec
+    CPU time for second BCH      0.06 sec, wall time      0.01 sec
+Iter 2: E_tot=-41.279667819462, E_corr=-0.094756173794, dE=1.05830929e-02, df_ia=8.74277269e-03, dRMS=1.02531953e-02
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.07 sec, wall time      0.03 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.34 sec, wall time      0.11 sec
+    CPU time for second BCH      0.04 sec, wall time      0.01 sec
+Iter 3: E_tot=-41.276715744799, E_corr=-0.094853855344, dE=2.95207466e-03, df_ia=9.05431885e-04, dRMS=1.06185649e-03
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.05 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.31 sec, wall time      0.09 sec
+    CPU time for second BCH      0.03 sec, wall time      0.01 sec
+Iter 4: E_tot=-41.276294115993, E_corr=-0.094859571286, dE=4.21628806e-04, df_ia=9.29082024e-05, dRMS=1.08958835e-04
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.05 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.33 sec, wall time      0.09 sec
+    CPU time for second BCH      0.02 sec, wall time      0.01 sec
+Iter 5: E_tot=-41.276137222836, E_corr=-0.094861901434, dE=1.56893158e-04, df_ia=1.13662658e-05, dRMS=1.33298169e-05
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.05 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.34 sec, wall time      0.10 sec
+    CPU time for second BCH      0.02 sec, wall time      0.01 sec
+Iter 6: E_tot=-41.276143991903, E_corr=-0.094861989404, dE=6.76906793e-06, df_ia=1.67314040e-06, dRMS=1.96199690e-06
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.04 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.27 sec, wall time      0.08 sec
+    CPU time for second BCH      0.02 sec, wall time      0.01 sec
+Iter 7: E_tot=-41.276142837934, E_corr=-0.094862002264, dE=1.15396922e-06, df_ia=2.07797500e-07, dRMS=2.43480628e-07
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.06 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.30 sec, wall time      0.09 sec
+    CPU time for second BCH      0.05 sec, wall time      0.01 sec
+Iter 8: E_tot=-41.276142986646, E_corr=-0.094862000956, dE=1.48711599e-07, df_ia=2.94727609e-08, dRMS=3.44718488e-08
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.05 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.31 sec, wall time      0.09 sec
+    CPU time for second BCH      0.05 sec, wall time      0.01 sec
+Iter 9: E_tot=-41.276142970755, E_corr=-0.094862000964, dE=1.58912457e-08, df_ia=4.98602899e-09, dRMS=5.47113183e-09
+aux blksize = 588 / 588  (_cderi incore, 0.00 MB/aux, total 800 MB, remain 3998 MB)
+qov_ab memory: 2.1 MiB
+    CPU time for making amplitude: integral transform      0.05 sec, wall time      0.02 sec
+t_mp1 memory: 2.1 MiB
+aux blksize = 588 / 588  (_cderi incore, 0.03 MB/aux, total 800 MB, remain 3998 MB)
+first BCH DF-block memory: 2.1 MiB
+    CPU time for first BCH: integral transform      0.31 sec, wall time      0.09 sec
+    CPU time for second BCH      0.05 sec, wall time      0.01 sec
+Iter 10: E_tot=-41.276142970746, E_corr=-0.094862001003, dE=8.19255774e-12, df_ia=2.21469992e-09, dRMS=1.20734117e-09
+------------------------------------------------------------
+E_WF[A] (Internal, Recalculated): -41.27614297
+Baseline (Full - Iso)           : -113.36041761
+Orthogonality Correction        : 0.00000023
+------------------------------------------------------------
+Total OBDH-in-DFT Energy   : -154.63656035 Eh
+Ref DFT Energy                  : -154.54272402 Eh
+Difference (Gain)               : -93836.33 uEh
+============================================================

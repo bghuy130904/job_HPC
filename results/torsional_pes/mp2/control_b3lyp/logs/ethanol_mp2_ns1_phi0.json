@@ -1,0 +1,34 @@
+{
+  "phi": 0.0,
+  "n_shells": 1,
+  "shell_label": 0,
+  "status": "converged",
+  "energy_hartree": -154.81858511427822,
+  "dihedral_degrees": 0.0,
+  "pyscf_version": "2.14.0",
+  "scfs": [
+    {
+      "class": "DFUHF",
+      "converged": true,
+      "energy_hartree": -154.01586000004804
+    },
+    {
+      "class": "DFUKS",
+      "converged": true,
+      "energy_hartree": -154.9867476645457
+    },
+    {
+      "class": "DFUHF",
+      "converged": true,
+      "energy_hartree": -18.272533972256184
+    }
+  ],
+  "source_sha256": {
+    "pycmf.OBDH.main": "21dd7c4bc8e28dfbf6add3f118bbdd2a1f3334d1cc46daa0037eedbd7c339bc7",
+    "pycmf.OBDH.uobdh_embed": "9a8993004d955f0c426c96d0f35edb2d200f9e5840f608fd354e4c960691049a",
+    "pycmf.OBDH.uobdh_solver": "9ad8ad62209d08044bf68f1f07152012b3acc9a7edb0eee6fe65658c566f7c0c",
+    "pycmf.OBDH.CL_embed": "dbed62174bfc5de1c1d3fa54297340c08f28624cf94aef0dceb307079afc4c3d",
+    "mp2_embed": "7ff6af7aed00c1c86679a4d21c37c022333c94762c49bca8ab838440770d5f1d"
+  },
+  "runtime_seconds": 32.55748579700003
+}

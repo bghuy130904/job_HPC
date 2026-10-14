@@ -90,7 +90,10 @@ def worker(config_path, phi, ns, point_path):
             return energy
 
         scf.hf.SCF.kernel = checked_kernel
-        coords = rotate_oh(config['coords'], config['dihedral'], phi)
+        target = phi
+        if config.get('angle_mode', 'dihedral') == 'rotation':
+            target += dihedral(config['coords'], config['dihedral'])
+        coords = rotate_oh(config['coords'], config['dihedral'], target)
         mol = gto.M(atom=list(zip(config['symbols'], coords)), unit='Angstrom',
                     basis=config['basis'], charge=0, spin=0, verbose=4,
                     max_memory=config['max_memory'])
@@ -168,6 +171,8 @@ def main(method=None):
     p.add_argument('--alpha', type=float, nargs=2)
     p.add_argument('--xc-env', help='Environment and upstream OBDH subsystem XC. Default matched DH-BLYP.')
     p.add_argument('--angles', type=float, nargs='+')
+    p.add_argument('--angle-mode', choices=['dihedral','rotation'], default='dihedral',
+                   help='Absolute dihedral (default) or rotation offset from the supplied XYZ.')
     p.add_argument('--shells', type=int, nargs='+', choices=[1,2,3])
     p.add_argument('--threads', type=int, default=1)
     p.add_argument('--max-memory', type=float, default=4000)
@@ -198,6 +203,7 @@ def main(method=None):
                   basis=a.basis or spec['basis'], alpha=alpha, xc_env=xc,
                   symbols=symbols, coords=coords, dihedral=molecule['dihedral'],
                   active_atoms=molecule['active_atoms'], angles=angles, shells=shells,
+                  angle_mode=a.angle_mode,
                   threads=a.threads,max_memory=a.max_memory,scf_cycles=a.scf_cycles,
                   scf_tol=a.scf_tol,ob_cycles=a.ob_cycles,ob_tol=a.ob_tol,mu=a.mu)
     if a.dry_run:
@@ -213,6 +219,7 @@ def main(method=None):
         if not a.resume:
             p.error('Run exists; use --resume or another output directory.')
         meta = json.loads(meta_path.read_text())
+        meta['config'].setdefault('angle_mode','dihedral')
         if meta['config'] != config:
             p.error('Resume configuration differs from the saved run.')
     if a.resume:
