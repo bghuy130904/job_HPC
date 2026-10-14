@@ -42,7 +42,7 @@ for molecule in ethanol 1-butanol; do
         --config "/home/giahuy/Code/job/benchmarks/torsional_pes/inputs/scan.json" \
         --molecule "$molecule" \
         --basis "6-311++G(2d,p)" \
-        --xc-env "0.5*HF+0.5*B88,0.6*LYP" \
+        --xc-env "b3lyp" \
         --threads "$SLURM_CPUS_PER_TASK" \
         --max-memory 40000 \
         --output-dir "${OUTPUT_DIR%/}" \
