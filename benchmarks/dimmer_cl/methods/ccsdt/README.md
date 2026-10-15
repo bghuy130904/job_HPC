@@ -72,8 +72,13 @@ freezing the same number in systems with different electron counts.
   triples completion and separate energy components per fragment.
 - `metadata.json`: method/version, settings, exact input geometry and SHA256,
   charge/spin, R definition and CP convention.
-- `logs/`, `geometries/`, `checkpoints/`: per-fragment PySCF log, XYZ including
-  ghost labels, and HF checkpoint.
+- `logs/`, `geometries/`: per-fragment PySCF log and XYZ including ghost labels.
+- HF checkpoints: `<PYSCF_SCRATCH>/dimmer_cl_ccsdt/<run-dir-name>/checkpoints/`.
+  Fallbacks are `TMPDIR`, then the system temporary directory. The exact file
+  path is saved as `HF_checkpoint` in convergence.csv and printed in the log.
+  On HPC the existing launcher chooses `/scratch/$SLURM_JOB_ID`, avoiding HDF5
+  checkpoint locks on the NFS result directory. Checkpoints are temporary and
+  may be purged by cluster scratch cleanup; they are not copied back to NFS.
 
 Only converged HF, internally stable references and converged CCSD are accepted.
 An internally unstable HF solution is restarted from the orbitals returned by
@@ -115,3 +120,18 @@ energies and skipping triples for unconverged CCSD. The final log routing was
 verified with a complete restricted CP rerun at R/R0=1. The local test-only
 compatibility shim handled missing /proc memory reporting and one-thread
 execution; it did not change scientific kernels.
+
+## NFS checkpoint lock fix (15 October 2026)
+
+A live diagnosis on c3 showed PID 5304 in syscall 73 (`flock` on x86-64),
+arguments fd=5 and operation=6 (`LOCK_EX | LOCK_NB`). File descriptor 5 pointed
+to the HF .chk file on the NFS results filesystem. The process waited in
+`rpc_wait_bit_killable` after `init E`, before the first printed SCF cycle.
+
+The driver now writes HF checkpoints to the configured scratch directory,
+keeping the normal HDF5 locking behavior. Results paths, energies, SCF/CCSD
+parameters and scientific kernels are unchanged. This does not alter a running
+process: use the updated driver in a new job. It does not fix NFS server/client
+configuration and does not guarantee sufficient scratch for CCSD integrals.
+In the observed allocation `/scratch` shared the root filesystem, with only
+52 GB free; canonical TZVPD out-of-core requires a larger scratch allocation.

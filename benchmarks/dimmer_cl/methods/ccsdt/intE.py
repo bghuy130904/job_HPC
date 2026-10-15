@@ -8,6 +8,7 @@ import math
 import os
 from pathlib import Path
 import time
+import tempfile
 from datetime import datetime
 
 HARTREE_TO_KCAL = 627.509474
@@ -88,7 +89,14 @@ def run_fragment(atom, name, r, settings, run_dir):
                 mf.conv_tol = settings['hf_tol']
                 mf.max_cycle = settings['hf_cycles']
                 mf.max_memory = settings['memory']
-                mf.chkfile = str(run_dir/'checkpoints'/f'{label}.chk')
+                # Keep HDF5 checkpoint locks off the NFS result filesystem.
+                checkpoint_root = Path(os.environ.get('PYSCF_SCRATCH') or
+                                       os.environ.get('TMPDIR') or tempfile.gettempdir())
+                checkpoint_dir = checkpoint_root/'dimmer_cl_ccsdt'/run_dir.name/'checkpoints'
+                checkpoint_dir.mkdir(parents=True, exist_ok=True)
+                mf.chkfile = str(checkpoint_dir/f'{label}.chk')
+                record['HF_checkpoint'] = mf.chkfile
+                print(f'HF checkpoint: {mf.chkfile}', flush=True)
                 mf.kernel()
                 record['HF_converged'] = bool(mf.converged)
                 record['E_HF_Eh'] = finite(mf.e_tot, 'HF energy')
@@ -200,7 +208,7 @@ def main():
     # Refuse to silently overwrite an earlier calculation.
     if (run_dir/'metadata.json').exists():
         raise FileExistsError(f'Existing run metadata: {run_dir}; choose a new RUN_DIR')
-    for name in ('logs','checkpoints','geometries'):
+    for name in ('logs','geometries'):
         (run_dir/name).mkdir(parents=True,exist_ok=True)
     metadata=dict(Method='CCSD(T)',Reference=settings['reference'].upper(),Charge=0,Spin=0,Density_fitting=False,
                   PySCF_version=pyscf.__version__,Input_file=str(input_path.resolve()),
