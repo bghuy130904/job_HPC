@@ -37,7 +37,7 @@ export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # Tham số của driver intE được truyền qua biến môi trường
-export BASIS="${BASIS:-def2-TZVP}"
+export BASIS="${BASIS:-aug-cc-pvdz}"
 export MEMORY="${MEMORY:-200000}"
 export FROZEN="${FROZEN:-0}"
 export REFERENCE="${REFERENCE:-uhf}"
