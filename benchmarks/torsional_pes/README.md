@@ -7,7 +7,7 @@ script, but not calculation sources or full run settings.
 ## Layout
 
 - `inputs/`: original XYZs and one shared `scan.json` configuration.
-- `result/torsional_pes/validation/` at repository root: the 12 original JSONs, unchanged.
+- `results/torsional_pes/validation/` at repository root: the 12 original JSONs, unchanged.
 - `methods/obdh/obdh.py`, `methods/mp2/mp2.py`: method entry points.
 - `methods/shared/scan.py`: geometry generation, isolated workers, diagnostics,
   checkpointing and the legacy-compatible output schema.
@@ -119,7 +119,7 @@ reference, with no further energy subtraction or unit conversion. Failed/null
 points remain gaps. Missing files are reported; validation data are never used
 as a silent fallback for missing new calculations.
 
-Outputs are `/home/giahuy/Code/job/result/torsional_pes/torsional_pes.pdf`
+Outputs are `/home/giahuy/Code/job/results/torsional_pes/torsional_pes.pdf`
 and `.png`. This repository folder contains figures and only the user's original
 12 JSONs in `validation/`. No sandbox calculation outputs or sandbox comparison
 reports are retained there.

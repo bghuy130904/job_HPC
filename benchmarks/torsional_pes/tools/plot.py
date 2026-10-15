@@ -45,13 +45,13 @@ def extract_xy(data):
 # Đường dẫn INPUT lấy trực tiếp từ OUTPUT_DIR của jobs/{obdh,mp2}/input.sh.
 OBDH_DIR = Path("/data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes")
 MP2_DIR = Path("/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes")
-# Trên HPC: /home/giahuy/Code/job/result/torsional_pes.
-OUTPUT_DIR = Path(__file__).resolve().parents[3] / "result" / "torsional_pes"
+# Trên HPC: /home/giahuy/Code/job/results/torsional_pes.
+OUTPUT_DIR = Path(__file__).resolve().parents[3] / "results" / "torsional_pes"
 VALIDATION_DIR = OUTPUT_DIR / "validation"
 
 parser = argparse.ArgumentParser(description="Plot torsional PES using the original figure layout.")
 parser.add_argument("--validation", action="store_true",
-                    help="Chỉ vẽ 12 JSON cũ trong result/torsional_pes/validation.")
+                    help="Chỉ vẽ 12 JSON cũ trong results/torsional_pes/validation.")
 args = parser.parse_args()
 if args.validation:
     OBDH_DIR = MP2_DIR = VALIDATION_DIR
