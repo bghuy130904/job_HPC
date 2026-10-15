@@ -221,7 +221,7 @@ def main(method=None):
         print(json.dumps(config, indent=2))
         return 0
     out = a.output_dir.resolve()
-    if out == (ROOT/'references').resolve():
+    if out == (REPO/'result/torsional_pes/validation').resolve():
         p.error('Output directory cannot overwrite legacy references.')
     out.mkdir(parents=True,exist_ok=True)
     meta_path = out/f'{a.molecule}_{a.method}.meta.json'

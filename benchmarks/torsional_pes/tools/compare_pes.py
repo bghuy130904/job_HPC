@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--runs', nargs='+', type=Path, required=True)
-    p.add_argument('--references',type=Path,default=ROOT/'references')
+    p.add_argument('--references',type=Path,default=ROOT.parents[1]/'result/torsional_pes/validation')
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--legacy-angle-mode', choices=['as-labeled','rotation'],default='as-labeled',
                    help='Treat old butanol phi as an offset from its 180-degree starting geometry.')

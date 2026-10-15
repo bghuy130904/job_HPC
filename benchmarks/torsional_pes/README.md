@@ -7,7 +7,7 @@ script, but not calculation sources or full run settings.
 ## Layout
 
 - `inputs/`: original XYZs and one shared `scan.json` configuration.
-- `references/`: all 12 original JSONs, unchanged.
+- `result/torsional_pes/validation/` at repository root: the 12 original JSONs, unchanged.
 - `methods/obdh/obdh.py`, `methods/mp2/mp2.py`: method entry points.
 - `methods/shared/scan.py`: geometry generation, isolated workers, diagnostics,
   checkpointing and the legacy-compatible output schema.
@@ -25,8 +25,9 @@ Active atom indices (zero based): ethanol `[7,8]`; butanol `[10,11,12,13,14]`.
 ## Scientific settings
 
 Default basis `6-311++G(2d,p)` is recorded in the original JSONs.
-Default alpha `(0.5,0.4)` comes from the supplied paper; both methods use the
-matched environment `0.5*HF+0.5*B88,0.6*LYP`. The old JSONs do not identify
+Default OBDH alpha `(0.5,0.4)` comes from the supplied paper and defines its
+DFT environment `0.5*HF+0.5*B88,0.6*LYP`. The current MP2 job explicitly uses
+`b3lyp`, as selected in `jobs/mp2/input.sh`. The old JSONs do not identify
 alpha, XC, DF auxiliary basis, grids, projector shift, solver tolerances or source
 versions. These defaults are reconstruction assumptions, not recovered metadata.
 OBDH leaves its `xc_env` at the upstream default and derives the DFT term from
@@ -59,10 +60,10 @@ From the repository root:
 ```bash
 python benchmarks/torsional_pes/methods/obdh/obdh.py \
   --molecule ethanol --threads 12 --max-memory 40000 \
-  --output-dir results/torsional_pes/obdh/run01
+  --output-dir /data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes
 python benchmarks/torsional_pes/methods/mp2/mp2.py \
   --molecule 1-butanol --threads 12 --max-memory 40000 \
-  --output-dir results/torsional_pes/mp2/run01
+  --output-dir /data/giahuy/Result/MP2_in_DFT/bench_torsional_pes
 ```
 
 Defaults run all 19 angles and three CL settings (57 points per molecule/method).
@@ -96,23 +97,39 @@ Edit the explicit INPUT_FILE / OUTPUT_DIR paths in the launcher if needed.
 Extra driver arguments are passed through `"$@"` to both calculations; e.g. append
 `--shells 1 --angles 0 60 90 120 180` for the preliminary protocol, or
 `--resume` to continue the same run. Default submissions compute all 19 angles
-and shells 1,2,3 (paper shells 0,1,2). The matched XC and alpha are unchanged.
+and shells 1,2,3 (paper shells 0,1,2). OBDH uses alpha=(0.5,0.4); the MP2
+job uses B3LYP. Plotting reads the resulting JSONs without changing energies.
 
-## Output and comparison
+## Plot
 
-Every method/molecule has a metadata sidecar and per-point JSON/logs.
-PES JSONs retain `molecule`, `basis`, `n_shells`, `e_ref_hartree` and
-`scan[{phi,e_rel_kcal}]`, and add absolute energies, status and configuration.
-Their zero is the lowest accepted sampled energy (a partial scan is not a proven
-minimum). Compare both curves at a common 180-degree anchor to avoid differences
-in the minimum definition.
+Use the original plotting layout, kept in `tools/plot.py`:
 
 ```bash
-python benchmarks/torsional_pes/tools/compare_pes.py \
-  --runs results/torsional_pes/obdh/smoke_matched results/torsional_pes/mp2/smoke_matched \
-  --output-dir results/torsional_pes/validation/smoke_matched
-python -m unittest discover -s benchmarks/torsional_pes/tests -v
+python /home/giahuy/Code/job/benchmarks/torsional_pes/tools/plot.py
 ```
 
-See `results/torsional_pes/validation/VALIDATION.md` for actual preliminary
-calculations, discrepancies and the limits of reproducibility.
+The code reads the exact OUTPUT_DIR paths from the current job scripts:
+
+- OBDH: `/data/giahuy/Result/OBDH_in_DFT/bench_torsional_pes/`.
+- MP2: `/data/giahuy/Result/MP2_in_DFT/bench_torsional_pes/`.
+
+Both methods and both molecules are plotted in one figure, with paper shells
+0,1,2. The existing `e_rel_kcal` values are used directly: E minus the stored
+reference, with no further energy subtraction or unit conversion. Failed/null
+points remain gaps. Missing files are reported; validation data are never used
+as a silent fallback for missing new calculations.
+
+Outputs are `/home/giahuy/Code/job/result/torsional_pes/torsional_pes.pdf`
+and `.png`. This repository folder contains figures and only the user's original
+12 JSONs in `validation/`. No sandbox calculation outputs or sandbox comparison
+reports are retained there.
+
+To reproduce the figure from those original JSONs:
+
+```bash
+python /home/giahuy/Code/job/benchmarks/torsional_pes/tools/plot.py --validation
+```
+
+This writes `torsional_pes_validation.pdf` and `.png` to the same figure folder.
+New calculation outputs and logs stay at the /data locations above. Sandbox
+calculations are temporary smoke checks, not benchmark result deliverables.
