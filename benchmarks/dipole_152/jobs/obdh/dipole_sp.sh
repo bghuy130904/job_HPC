@@ -31,14 +31,14 @@ python -u "$INPUT_FILE" \
     --ref-json "$CODE_ROOT/benchmarks/dipole_152/references/ref_sp.json" \
     --methods uhf ump2 obmp2 obdh \
     --basis "${BASIS:-aug-cc-pCVQZ}" \
-    --alpha "${ALPHA_X:-0.53}" "${ALPHA_C:-0.39}" \
+    --alpha "${ALPHA_X:-0.5}" "${ALPHA_C:-0.4}" \
     --scf-policy "${SCF_POLICY:-multiguess}" \
     --dipole "${DIPOLE_MODE:-dm}" \
     --fields 0.0001 \
-    --scf-cycles 200 --scf-tol 1e-12 --scf-grad-tol 1e-7 \
-    --ob-cycles 300 --ob-tol 1e-10 \
+    --scf-cycles 200 --scf-tol 1e-10 --scf-grad-tol 1e-7 \
+    --ob-cycles 300 --ob-tol 1e-8 \
     --grid 4 --scf-aux none --mp2-aux auto \
-    --threads "$SLURM_CPUS_PER_TASK" --max-memory 40000 \
+    --threads "$SLURM_CPUS_PER_TASK" --max-memory 47000 \
     --resume "$@" >> "$OUTPUT_FILE" 2>&1
 end=$(date +%s)
 runtime=$((end-start))
