@@ -2,7 +2,6 @@
 """Shared dipole benchmark: explicit SCF policy, density definitions and checkpoints."""
 import argparse
 import contextlib
-import fcntl
 import hashlib
 import json
 import math
@@ -44,28 +43,41 @@ def digest(value):
 
 
 @contextlib.contextmanager
-def metadata_lock(path,timeout=60.):
-    """Bound lock waits and show them in the controller log (including on NFS)."""
-    print(f'Metadata: acquiring lock {path}',flush=True)
-    with Path(path).open('a') as lock:
-        start=time.monotonic();next_notice=10.
-        while True:
-            try:
-                fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                elapsed=time.monotonic()-start
-                if elapsed>=timeout:
-                    raise TimeoutError(f'Metadata lock busy after {elapsed:.1f}s: {path}. Check active jobs/filesystem locking; do not delete a lock used by a running job.')
-                if elapsed>=next_notice:
-                    print(f'Metadata: still waiting for lock ({elapsed:.0f}s): {path}',flush=True)
-                    next_notice+=10.
-                time.sleep(.2)
+def directory_lock(path,timeout=60.,label='Metadata'):
+    """Atomic mkdir exclusion, without network-filesystem advisory flock RPCs.
+
+    Never steal a lock by age: a long calculation may still own it. On a hard
+    kill, owner.json identifies the job to check before manual cleanup.
+    """
+    path=Path(path)
+    print(f'{label}: acquiring lock {path}',flush=True)
+    start=time.monotonic();next_notice=10.
+    while True:
         try:
-            print('Metadata: lock acquired',flush=True)
-            yield
-        finally:
-            fcntl.flock(lock,fcntl.LOCK_UN)
+            path.mkdir()
+            break
+        except FileExistsError:
+            elapsed=time.monotonic()-start
+            if elapsed>=timeout:
+                raise TimeoutError(f'{label} lock busy after {elapsed:.1f}s: {path}. Check {path / "owner.json"} and its job before removing a stale lock.')
+            if elapsed>=next_notice:
+                print(f'{label}: still waiting for lock ({elapsed:.0f}s): {path}',flush=True)
+                next_notice+=10.
+            time.sleep(.2)
+    owner=path/'owner.json'
+    try:
+        owner.write_text(json.dumps(dict(pid=os.getpid(),host=os.uname().nodename,
+            job_id=os.environ.get('SLURM_JOB_ID'),array_task=os.environ.get('SLURM_ARRAY_TASK_ID'),
+            created=time.time()))+'\n')
+        print(f'{label}: lock acquired',flush=True)
+        yield
+    finally:
+        owner.unlink(missing_ok=True)
+        path.rmdir()
+
+
+def metadata_lock(path,timeout=60.):
+    return directory_lock(str(path)+'.d',timeout=timeout)
 
 
 def file_hash(path):
@@ -561,8 +573,7 @@ def main(default_methods=None):
     failures=0
     for i in indices:
         item=inputs[i];name=item['name'];token=stem(i,name);result_path=a.outdir/'points'/f'{token}.json'
-        with (a.outdir/'points'/f'.{token}.lock').open('a') as lock:
-            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        with directory_lock(a.outdir/'points'/f'.{token}.lock.d',timeout=0.,label=f'Case {name}'):
             if result_path.exists():
                 cached=json.loads(result_path.read_text())
                 if cached.get('fingerprint')!=fingerprint:raise RuntimeError('Checkpoint fingerprint differs')

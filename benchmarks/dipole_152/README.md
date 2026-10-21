@@ -144,9 +144,18 @@ in separate calculation implementations.
 Live monitoring: the driver `.txt` prints startup, metadata lock/write stages
 and the exact per-molecule log path. Workers run with Python `-u`; the native
 SCF/OB/CC iterations go to `logs/<index>_<name>.log` while calculation is in
-progress. Follow that file with `tail -f`. Metadata lock contention is reported
-every 10 seconds and fails after 60 seconds rather than waiting indefinitely.
-Do not delete a lock file used by an active job. `points/*.json` is written
+progress. Follow that file with `tail -f`. Locks use atomic directory creation,
+not advisory `flock`, which can hang in filesystem lock RPCs on some HPC mounts
+even with `LOCK_NB`. Metadata contention is reported every 10 seconds and times
+out after 60 seconds. `.metadata.lock.d/owner.json` records host, PID and SLURM
+job/task. Per-case `.lock.d` directories reject duplicate workers. Locks are
+removed on normal/error exit; hard-killed jobs can leave a directory behind.
+Never remove it until its owner job has stopped; locks are not stolen by age.
+Stop all old array tasks before switching from the older flock implementation:
+the two locking protocols do not coordinate. The old empty `.metadata.lock`
+file is unused by the new protocol. A source hash change requires a fresh
+output directory if the old directory already has metadata/checkpoints.
+`points/*.json` is written
 after the whole molecule finishes, not after every SCF/OB iteration.
 
 Resume accepts only matching physical parameters, input and core/driver hashes.

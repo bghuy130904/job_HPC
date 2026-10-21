@@ -16,12 +16,26 @@ import report_dipole as report
 class ProtocolTests(unittest.TestCase):
     def test_metadata_lock_wait_is_bounded_and_reported(self):
         with tempfile.TemporaryDirectory() as folder:
+            (Path(folder)/'lock.d').mkdir()
             output=io.StringIO()
-            with contextlib.redirect_stdout(output),patch.object(run.fcntl,'flock',side_effect=BlockingIOError),patch.object(run.time,'monotonic',side_effect=[0.,61.]):
+            with contextlib.redirect_stdout(output),patch.object(run.time,'monotonic',side_effect=[0.,61.]):
                 with self.assertRaisesRegex(TimeoutError,'Metadata lock busy'):
                     with run.metadata_lock(Path(folder)/'lock'):
                         self.fail('Busy lock must not allow a metadata write')
             self.assertIn('acquiring lock',output.getvalue())
+
+    def test_directory_lock_has_owner_and_releases_on_error(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'case.lock.d'
+            with self.assertRaisesRegex(ValueError,'calculation failed'):
+                with run.directory_lock(path):
+                    owner=json.loads((path/'owner.json').read_text())
+                    self.assertIn('pid',owner);self.assertIn('host',owner)
+                    with self.assertRaises(TimeoutError):
+                        with run.directory_lock(path,timeout=0):self.fail('Duplicate lock acquired')
+                    raise ValueError('calculation failed')
+            self.assertFalse(path.exists())
 
     def test_benchmark_defaults_to_nested_multiguess(self):
         args=run.parser().parse_args(['--outdir','unused'])
