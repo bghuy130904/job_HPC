@@ -164,9 +164,9 @@ def draw(mue, system_mue, counts, configs, hf, output, vmax, dpi):
     labels = [f'{v:.1f}' for v in ALPHAS]
     ax.set_xticks(range(9), labels)
     ax.set_yticks(range(9), labels)
-    ax.set_xlabel('Hệ số PT2 — phần tử thứ hai của Alpha')
-    ax.set_ylabel('Hệ số HF — phần tử thứ nhất của Alpha')
-    ax.set_title('A. MUE trên đủ 16 điểm\nÔ xám: thiếu kết quả, không xếp hạng',
+    ax.set_xlabel('alpha_c')
+    ax.set_ylabel('alpha_x')
+    ax.set_title('A. MUE \n Grey points: discovegence->missing results',
                  fontweight='bold', pad=12)
     fig.colorbar(im, ax=ax, shrink=.78, label='MUE (kcal/mol)')
     index = round(hf * 10) - 1
@@ -175,7 +175,7 @@ def draw(mue, system_mue, counts, configs, hf, output, vmax, dpi):
         bx.plot(ALPHAS, system_mue[index, :, s], marker='o', lw=1.8,
                 markersize=4, color=color, label=name)
     bx.plot(ALPHAS, mue[index], color='#111827', ls='--', lw=2,
-            marker='s', markersize=4, label='Toàn bộ 16 điểm')
+            marker='s', markersize=4, label='Results')
     if np.isfinite(mue[index]).any():
         j = np.nanargmin(mue[index])
         bx.axvline(ALPHAS[j], color='#6B7280', lw=1, ls=':')
@@ -183,11 +183,11 @@ def draw(mue, system_mue, counts, configs, hf, output, vmax, dpi):
                    edgecolors='#111827', linewidths=1.5, zorder=5)
     bx.set_xticks(ALPHAS)
     bx.set_ylim(bottom=0)
-    bx.set_xlabel(f'Hệ số PT2 (giữ hệ số HF = {hf:.1f})')
+    bx.set_xlabel(f'OBMP2 scaling (fixed HF scaling = {hf:.1f})')
     bx.set_ylabel('MUE (kcal/mol)')
     bx.grid(axis='y', alpha=.2)
-    bx.set_title(f'B. Phân rã MUE khi hệ số HF = {hf:.1f}\nCân bằng sai số giữa bốn hệ',
-                 fontweight='bold', pad=12)
+    # bx.set_title(f'B. Phân rã MUE khi hệ số HF = {hf:.1f}\nCân bằng sai số giữa bốn hệ',
+    #              fontweight='bold', pad=12)
     bx.legend(frameon=False, fontsize=9, loc='upper right')
     bases = {str(c['basis']) for c in configs.values() if 'basis' in c}
     grids = {str(c['grid']) for c in configs.values() if 'grid' in c}
@@ -196,10 +196,10 @@ def draw(mue, system_mue, counts, configs, hf, output, vmax, dpi):
         details += ' · ' + next(iter(bases))
     if len(grids) == 1:
         details += ' · grid ' + next(iter(grids))
-    fig.suptitle('SIE4x4 · OBDH từ UHF-init' + details, fontsize=15, fontweight='bold')
-    footer = 'Nguồn: file Excel tổng hợp · Ô trống/chữ: thiếu dữ liệu · N: số điểm hợp lệ/16.'
-    footer += '\nMUE tính lại từ E_total và reference trong Excel; khung đen: MUE thấp nhất.'
-    fig.supxlabel(footer, fontsize=8.5)
+    # fig.suptitle('SIE4x4 · OBDH từ UHF-init' + details, fontsize=15, fontweight='bold')
+    # footer = 'Nguồn: file Excel tổng hợp · Ô trống/chữ: thiếu dữ liệu · N: số điểm hợp lệ/16.'
+    # footer += '\nMUE tính lại từ E_total và reference trong Excel; khung đen: MUE thấp nhất.'
+    # fig.supxlabel(footer, fontsize=8.5)
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=dpi, facecolor='white')
     plt.close(fig)
