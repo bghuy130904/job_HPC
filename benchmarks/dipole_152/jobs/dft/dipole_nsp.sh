@@ -18,6 +18,10 @@ INPUT_JSON="$CODE_ROOT/benchmarks/dipole_152/inputs/nsp_inputs.json"
 OUTPUT_DIR="${OUTPUT_DIR:-/data/giahuy/Result/DFT/dipole_moments/nsp_v2}"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/dipole_${SLURM_ARRAY_TASK_ID:-all}.txt"
+printf 'START %s job=%s task=%s host=%s\nCode: %s\nOutput: %s\nLoading Python environment...\n' \
+    "$(date -Is)" "${SLURM_JOB_ID:-local}" "${SLURM_ARRAY_TASK_ID:-all}" "$(hostname)" \
+    "$INPUT_FILE" "$OUTPUT_DIR" >> "$OUTPUT_FILE"
+export PYTHONUNBUFFERED=1
 export JOB_SCRATCH_PATH="/scratch/${SLURM_JOB_ID}"
 export TMPDIR="$JOB_SCRATCH_PATH"
 mkdir -p "$TMPDIR"

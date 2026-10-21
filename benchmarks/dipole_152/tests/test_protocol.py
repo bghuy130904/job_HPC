@@ -1,6 +1,8 @@
 """Scientific validity and reporting regressions for the shared dipole protocol."""
 from pathlib import Path
 import sys
+import contextlib
+import io
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -12,6 +14,15 @@ import report_dipole as report
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_metadata_lock_wait_is_bounded_and_reported(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output),patch.object(run.fcntl,'flock',side_effect=BlockingIOError),patch.object(run.time,'monotonic',side_effect=[0.,61.]):
+                with self.assertRaisesRegex(TimeoutError,'Metadata lock busy'):
+                    with run.metadata_lock(Path(folder)/'lock'):
+                        self.fail('Busy lock must not allow a metadata write')
+            self.assertIn('acquiring lock',output.getvalue())
+
     def test_benchmark_defaults_to_nested_multiguess(self):
         args=run.parser().parse_args(['--outdir','unused'])
         self.assertEqual(args.scf_policy,'multiguess')

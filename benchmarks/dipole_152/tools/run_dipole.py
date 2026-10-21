@@ -43,6 +43,31 @@ def digest(value):
     return hashlib.sha256(json.dumps(clean(value),sort_keys=True).encode()).hexdigest()
 
 
+@contextlib.contextmanager
+def metadata_lock(path,timeout=60.):
+    """Bound lock waits and show them in the controller log (including on NFS)."""
+    print(f'Metadata: acquiring lock {path}',flush=True)
+    with Path(path).open('a') as lock:
+        start=time.monotonic();next_notice=10.
+        while True:
+            try:
+                fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                elapsed=time.monotonic()-start
+                if elapsed>=timeout:
+                    raise TimeoutError(f'Metadata lock busy after {elapsed:.1f}s: {path}. Check active jobs/filesystem locking; do not delete a lock used by a running job.')
+                if elapsed>=next_notice:
+                    print(f'Metadata: still waiting for lock ({elapsed:.0f}s): {path}',flush=True)
+                    next_notice+=10.
+                time.sleep(.2)
+        try:
+            print('Metadata: lock acquired',flush=True)
+            yield
+        finally:
+            fcntl.flock(lock,fcntl.LOCK_UN)
+
+
 def file_hash(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -166,6 +191,7 @@ class Calculation:
         for guess in guesses:
             row=dict(source=source,guess=guess,valid=False,stable=None)
             try:
+                print(f'SCF START source={source} guess={guess}',flush=True)
                 mf=self.factory(source);mf.init_guess=guess;mf.kernel()
                 if self.cfg['scf_policy']!='standard':
                     if not mf.converged:
@@ -173,6 +199,7 @@ class Calculation:
                     if mf.converged:
                         stable=False
                         for attempt in range(self.cfg['stability_cycles']+1):
+                            print(f'STABILITY source={source} guess={guess} attempt={attempt}',flush=True)
                             orb,_,stable,_=mf.stability(internal=True,external=False,return_status=True)
                             if stable or attempt==self.cfg['stability_cycles']:break
                             mf=mf.newton();mf.kernel(mo_coeff=orb,mo_occ=mf.mo_occ)
@@ -184,6 +211,7 @@ class Calculation:
             except Exception as exc:
                 row.update(error=f'{type(exc).__name__}: {exc}');traceback.print_exc()
             self.candidates.append(row)
+            print(f'SCF END source={source} guess={guess} valid={row["valid"]} stable={row["stable"]}',flush=True)
         # SCF energy only; never choose a reference by MP2 energy, dipole or S2.
         selected=min(pool,key=lambda x:x[1]['energy_Eh']) if pool else (None,dict(valid=False,error='No converged admissible SCF reference'))
         for row in self.candidates:
@@ -311,6 +339,7 @@ class Calculation:
             record.update(error=f'{type(exc).__name__}: {exc}');traceback.print_exc()
             record['valid']=False;record['status']='error'
         record['seconds']=time.time()-start
+        print(f'=== DONE {method} axis={axis} field={field:+.8e} status={record["status"]} seconds={record["seconds"]:.1f} ===',flush=True)
         self.posts[key]=(record,state)
         if axis is not None:self.points.append(record)
         return record,state
@@ -407,6 +436,7 @@ def run_case(config,index,name,props):
 
 
 def worker(meta_path,index,result_path,threads=None,max_memory=None):
+    print(f'Worker START pid={os.getpid()} index={index} metadata={meta_path}',flush=True)
     meta=json.loads(Path(meta_path).read_text());item=meta['inputs'][index]
     config=dict(meta['config'])
     if threads is not None:config['threads']=threads
@@ -471,6 +501,7 @@ def parser(default_methods=None):
 
 def main(default_methods=None):
     p=parser(default_methods);a=p.parse_args()
+    print(f'Dipole START pid={os.getpid()} outdir={a.outdir.resolve()}',flush=True)
     if a.worker:return worker(a.worker[0],int(a.worker[1]),a.worker[2],a.threads,a.max_memory)
     from report_dipole import collect
     if a.merge:
@@ -510,8 +541,7 @@ def main(default_methods=None):
     a.outdir.mkdir(parents=True,exist_ok=True);(a.outdir/'points').mkdir(exist_ok=True);(a.outdir/'logs').mkdir(exist_ok=True)
     meta_path=a.outdir/'dipole.meta.json'
     def update_meta(status=None):
-        with (a.outdir/'.metadata.lock').open('a') as lock:
-            fcntl.flock(lock,fcntl.LOCK_EX)
+        with metadata_lock(a.outdir/'.metadata.lock'):
             if meta_path.exists():
                 meta=json.loads(meta_path.read_text())
                 if meta['fingerprint']!=fingerprint:raise RuntimeError('Output contains different physics/input/code; choose a new --outdir')
@@ -523,8 +553,10 @@ def main(default_methods=None):
             if status is None:
                 meta.setdefault('invocations',[]).append(dict(time=time.time(),threads=a.threads,max_memory=a.max_memory,job_id=os.environ.get('SLURM_JOB_ID'),indices=indices))
             if status is not None:meta['cases'].update(status)
+            print(f'Metadata: writing {meta_path}',flush=True)
             write_json(meta_path,meta)
             write_json(a.outdir/'config.json',meta['config'])
+            print('Metadata: saved',flush=True)
     update_meta()
     failures=0
     for i in indices:
@@ -539,10 +571,11 @@ def main(default_methods=None):
                     update_meta({str(i):dict(molecule=name,complete=True,path=str(result_path.relative_to(a.outdir)),exit_code=0)})
                     print(f'SKIP {name}: complete',flush=True);continue
             print(f'Running {i}: {name}',flush=True)
+            print(f'Live calculation log: {(a.outdir/"logs"/f"{token}.log").resolve()}',flush=True)
             result_path.unlink(missing_ok=True)
             with (a.outdir/'logs'/f'{token}.log').open('a') as log:
                 log.write(f'\n=== ATTEMPT {time.strftime("%Y-%m-%d %H:%M:%S")} ===\n');log.flush()
-                code=subprocess.run([sys.executable,str(Path(__file__).resolve()),'--outdir',str(a.outdir),
+                code=subprocess.run([sys.executable,'-u',str(Path(__file__).resolve()),'--outdir',str(a.outdir),
                     '--worker',str(meta_path),str(i),str(result_path),'--threads',str(a.threads),'--max-memory',str(a.max_memory)],stdout=log,stderr=subprocess.STDOUT).returncode
             case=json.loads(result_path.read_text()) if result_path.exists() else dict(index=i,molecule=name,
                 complete=False,error=f'Worker exited {code} without checkpoint',fingerprint=fingerprint,zero=[],finite_field={},field_points=[],scf_candidates=[])

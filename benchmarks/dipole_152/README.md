@@ -135,10 +135,19 @@ in separate calculation implementations.
 | `points/000_AlH2.json` | One complete molecule checkpoint: zero-field methods, field points, candidates and all diagnostics |
 | `logs/000_AlH2.log` | Full native SCF/CC/OB log, with explicit method/axis/field markers; retries append an attempt marker |
 | `dipole_<array-index>.txt` | Job launcher/driver output; no grep-filtered log loss |
+
 | `summary.txt` | Merge summary, completeness and statistics |
 | `Results.csv`, `Statistics.csv`, etc. | Separate narrow tables, same data as workbook sheets |
 | `dipole.workbook.json` | Neutral workbook layout/data/formulas for reproducible review |
 | `dipole.xlsx` | Formatted workbook produced during serial completion or explicit merge |
+
+Live monitoring: the driver `.txt` prints startup, metadata lock/write stages
+and the exact per-molecule log path. Workers run with Python `-u`; the native
+SCF/OB/CC iterations go to `logs/<index>_<name>.log` while calculation is in
+progress. Follow that file with `tail -f`. Metadata lock contention is reported
+every 10 seconds and fails after 60 seconds rather than waiting indefinitely.
+Do not delete a lock file used by an active job. `points/*.json` is written
+after the whole molecule finishes, not after every SCF/OB iteration.
 
 Resume accepts only matching physical parameters, input and core/driver hashes.
 `--only`, array index, output path, report destination, threads and memory are
