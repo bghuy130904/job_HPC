@@ -1,18 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=dipmomt_merge
-#SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/merge_%j.out
-#SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/merge_%j.err
-#SBATCH --partition=Bigmem
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=5
-#SBATCH --mem-per-cpu=4000
-#SBATCH --time=00:15:00
-
+set -euo pipefail
 module load python3.9
 source /home/giahuy/.venv/bin/activate
-
-python /home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd.py \
-       --input /home/giahuy/Code/job/CCSD/geometry/sp_inputs.json  \
-       --outdir /data/giahuy/Result/CCSD/dipole_moments/sp --merge   \
-       --output-xlsx /data/giahuy/Result/CCSD/dipole_moments/sp/dipole152_sp.xlsx
+CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
+OUTPUT_DIR="${OUTPUT_DIR:-/data/giahuy/Result/CCSD/dipole_moments/sp_v2}"
+python -u "$CODE_ROOT/benchmarks/dipole_152/methods/ccsd/calc_dipmomt_ccsd_ff.py" \
+    --outdir "$OUTPUT_DIR" --merge \
+    --ref-json "$CODE_ROOT/benchmarks/dipole_152/references/ref_sp.json" \
+    "$@" >> "$OUTPUT_DIR/merge.txt" 2>&1

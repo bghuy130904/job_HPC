@@ -1,21 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=obdh_merge
-#SBATCH --output=/data/giahuy/Result/OBDH/dipole_moments/_output/merge_%j.out
-#SBATCH --error=/data/giahuy/Result/OBDH/dipole_moments/_error/merge_%j.err
-#SBATCH --partition=Bigmem
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --threads-per-core=1
-#SBATCH --mem=4G
-#SBATCH --time=00:15:00
-
-CODE="/home/giahuy/Code/job/OBDH/bench_dipole_152/_src/obdh.py"
-INPUT="/home/giahuy/Code/job/OBDH/bench_dipole_152/geometry/nsp_inputs.json"
-REF="/home/giahuy/Code/job/OBDH/bench_dipole_152/geometry/ref_nsp.json"
-OUTDIR="/data/giahuy/Result/OBDH/dipole_moments/nsp_scan"
-
+set -euo pipefail
 module load python3.9
 source /home/giahuy/.venv/bin/activate
-
-python "$CODE" --input "$INPUT" --outdir "$OUTDIR" --ref "$REF" --merge --trim 3
+CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
+OUTPUT_DIR="${OUTPUT_DIR:-/data/giahuy/Result/OBDH/dipole_moments/nsp_v2}"
+python -u "$CODE_ROOT/benchmarks/dipole_152/methods/obdh/calc_dipmomt_obdh.py" \
+    --outdir "$OUTPUT_DIR" --merge \
+    --ref-json "$CODE_ROOT/benchmarks/dipole_152/references/ref_nsp.json" \
+    "$@" >> "$OUTPUT_DIR/merge.txt" 2>&1

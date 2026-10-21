@@ -1,16 +1,10 @@
 #!/bin/bash
-# Merge chay vai giay, KHONG can compute node, KHONG can pyscf.
-# Chay truc tiep tren login node:  bash merge_dft.sh
+set -euo pipefail
 module load python3.9
 source /home/giahuy/.venv/bin/activate
-
-BASE="/data/giahuy/Result/DFT/dipole_moments"
-CODE="/home/giahuy/Code/job/DFT/bench_dipole_152/_src/calc_dipmomt_dft.py"
-REF="/home/giahuy/Code/job/DFT/bench_dipole_152/geometry/ref_ccsdt.json"
-
-for tag in sp nsp; do
-    [ -d "$BASE/$tag/rows" ] || continue
-    python "$CODE" --outdir "$BASE/$tag" --merge \
-           --output-xlsx "$BASE/$tag/dipole_dft_${tag}.xlsx" \
-           --ref-json "$REF"
-done
+CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
+OUTPUT_DIR="${OUTPUT_DIR:-/data/giahuy/Result/DFT/dipole_moments/sp_v2}"
+python -u "$CODE_ROOT/benchmarks/dipole_152/methods/dft/calc_dipmomt_dft.py" \
+    --outdir "$OUTPUT_DIR" --merge \
+    --ref-json "$CODE_ROOT/benchmarks/dipole_152/references/ref_sp.json" \
+    "$@" >> "$OUTPUT_DIR/merge.txt" 2>&1

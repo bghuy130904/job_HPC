@@ -1,46 +1,46 @@
 #!/bin/bash
-#SBATCH --job-name=dipmomt_nsp
-#SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/dipmomt_%A_%a.out
-#SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/dipmomt_%A_%a.err
+#SBATCH --job-name=ccsd_dipole_nsp
+#SBATCH --output=/data/giahuy/Result/CCSD/dipole_moments/_output/dipole_nsp_%A_%a.out
+#SBATCH --error=/data/giahuy/Result/CCSD/dipole_moments/_error/dipole_nsp_%A_%a.err
 #SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
 #SBATCH --threads-per-core=1
-#SBATCH --mem=40G 
-#SBATCH --time=40:00:00               ### CHỈNH theo giới hạn partition
-#SBATCH --array=0-80%20               ### sp: 71 phân tử -> 0-70 ; nsp (81) -> đổi 0-80
-
-
-CODE="/home/giahuy/Code/job/CCSD/_src/calc_dipmomt_ccsd.py"
-INPUT="/home/giahuy/Code/job/CCSD/geometry/nsp_inputs.json"
-OUTDIR="/data/giahuy/Result/CCSD/dipole_moments/nsp"
-
-# thư mục cho log của SBATCH (SLURM KHÔNG tự tạo) + thư mục kết quả
-mkdir -p /data/giahuy/Result/CCSD/dipole_moments/_output
-mkdir -p /data/giahuy/Result/CCSD/dipole_moments/_error
-mkdir -p "$OUTDIR/rows"
-
-# scratch bắt buộc trên cluster này
-export JOB_SCRATCH_PATH="/scratch/$SLURM_JOB_ID"
+#SBATCH --mem=50G
+#SBATCH --time=48:00:00
+#SBATCH --array=0-80%3
+set -euo pipefail
+start=$(date +%s)
+CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
+INPUT_FILE="$CODE_ROOT/benchmarks/dipole_152/methods/ccsd/calc_dipmomt_ccsd_ff.py"
+INPUT_JSON="$CODE_ROOT/benchmarks/dipole_152/inputs/nsp_inputs.json"
+OUTPUT_DIR="${OUTPUT_DIR:-/data/giahuy/Result/CCSD/dipole_moments/nsp_v2}"
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_FILE="$OUTPUT_DIR/dipole_${SLURM_ARRAY_TASK_ID:-all}.txt"
+export JOB_SCRATCH_PATH="/scratch/${SLURM_JOB_ID}"
 export TMPDIR="$JOB_SCRATCH_PATH"
 mkdir -p "$TMPDIR"
-
 module load python3.9
 source /home/giahuy/.venv/bin/activate
-
-# threads khớp với cpus-per-task
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
-# PySCF RAM ~ (mem-per-cpu * cpus) trừ headroom
-export PYSCF_MAX_MEMORY=35000
-
-start=$(date +%s)
-
-# mỗi task chạy đúng 1 phân tử theo SLURM_ARRAY_TASK_ID
-python "$CODE" --input "$INPUT" --outdir "$OUTDIR"
-
-end=$(date +%s); rt=$((end - start))
-printf "Task %s xong. Thời gian: %02d:%02d:%02d\n" \
-       "$SLURM_ARRAY_TASK_ID" $((rt/3600)) $(((rt%3600)/60)) $((rt%60))
+python -u "$INPUT_FILE" \
+    --input "$INPUT_JSON" --outdir "$OUTPUT_DIR" \
+    --ref-json "$CODE_ROOT/benchmarks/dipole_152/references/ref_nsp.json" \
+    --methods ccsd ccsd_t \
+    --basis "${BASIS:-aug-cc-pCVQZ}" \
+    --alpha "${ALPHA_X:-0.53}" "${ALPHA_C:-0.39}" \
+    --scf-policy "${SCF_POLICY:-multiguess}" \
+    --dipole "${DIPOLE_MODE:-ff}" \
+    --fields 0.0001 \
+    --scf-cycles 200 --scf-tol 1e-12 --scf-grad-tol 1e-7 \
+    --ob-cycles 300 --ob-tol 1e-10 \
+    --grid 4 --scf-aux none --mp2-aux auto \
+    --threads "$SLURM_CPUS_PER_TASK" --max-memory 40000 \
+    --resume "$@" >> "$OUTPUT_FILE" 2>&1
+end=$(date +%s)
+runtime=$((end-start))
+printf 'Hoàn tất. Output: %s. Thời gian: %02d:%02d:%02d\n' \
+    "$OUTPUT_FILE" $((runtime/3600)) $(((runtime%3600)/60)) $((runtime%60))
