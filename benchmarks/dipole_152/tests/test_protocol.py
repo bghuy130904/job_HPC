@@ -40,8 +40,10 @@ class ProtocolTests(unittest.TestCase):
     def test_benchmark_defaults_to_nested_multiguess(self):
         args=run.parser().parse_args(['--outdir','unused'])
         self.assertEqual(args.scf_policy,'multiguess')
+        self.assertEqual(args.scf_grad_tol,1e-4)
         for job in (Path(__file__).resolve().parents[1]/'jobs').glob('*/dipole_*.sh'):
             self.assertIn('${SCF_POLICY:-multiguess}',job.read_text())
+            self.assertIn('--scf-grad-tol 1e-4',job.read_text())
 
     def calculator(self,invalid=False,nonlinear=False):
         calc=run.Calculation.__new__(run.Calculation)
@@ -84,7 +86,7 @@ class ProtocolTests(unittest.TestCase):
         class MF:
             def kernel(self):pass
         calc=run.Calculation.__new__(run.Calculation)
-        calc.cfg=dict(scf_policy='multiguess',guesses=['a','b'],init_guess='a',stability_cycles=0)
+        calc.cfg=dict(scf_policy='multiguess',guesses=['a','b'],init_guess='a',stability_cycles=0,scf_grad_tol=1e-7)
         calc.refs={};calc.candidates=[]
         class Stable(MF):
             converged=True;mo_coeff=None;mo_occ=None
@@ -93,7 +95,7 @@ class ProtocolTests(unittest.TestCase):
         def factory(source):return pool.pop(0)
         calc.factory=factory
         def info(mf):
-            return dict(valid=True,energy_Eh=-2 if mf.init_guess=='a' else -1,s2=5 if mf.init_guess=='a' else .75)
+            return dict(scf_converged=True,density_valid=True,gradient=1e-8,valid=True,energy_Eh=-2 if mf.init_guess=='a' else -1,s2=5 if mf.init_guess=='a' else .75)
         calc.scf_info=info
         _,selected=calc.reference('uhf')
         self.assertEqual(selected['energy_Eh'],-2)
@@ -101,18 +103,18 @@ class ProtocolTests(unittest.TestCase):
 
     def test_failed_reference_has_no_lowest_energy_fallback(self):
         calc=run.Calculation.__new__(run.Calculation)
-        calc.cfg=dict(scf_policy='standard',init_guess='minao')
+        calc.cfg=dict(scf_policy='standard',init_guess='minao',scf_grad_tol=1e-7)
         calc.refs={};calc.candidates=[]
         class MF:
             def kernel(self):pass
         calc.factory=lambda source:MF()
-        calc.scf_info=lambda mf:dict(valid=False,energy_Eh=-99,scf_converged=False)
+        calc.scf_info=lambda mf:dict(valid=False,energy_Eh=-99,scf_converged=False,density_valid=True,gradient=1e-3)
         state,record=calc.reference('uhf')
         self.assertIsNone(state);self.assertFalse(record['valid'])
 
     def test_multiguess_checks_and_follows_stability_inside_each_seed(self):
         calc=run.Calculation.__new__(run.Calculation)
-        calc.cfg=dict(scf_policy='multiguess',guesses=['a','b'],stability_cycles=2)
+        calc.cfg=dict(scf_policy='multiguess',guesses=['a','b'],stability_cycles=2,scf_grad_tol=1e-7)
         calc.refs={};calc.candidates=[]
         events=[]
         class MF:
@@ -124,7 +126,7 @@ class ProtocolTests(unittest.TestCase):
                 events.append((self.init_guess,'stability',None));self.checks+=1
                 return 'unstable_orbitals',None,self.checks>1,None
         calc.factory=lambda source:MF()
-        calc.scf_info=lambda mf:dict(valid=True,energy_Eh=-1.)
+        calc.scf_info=lambda mf:dict(valid=True,energy_Eh=-1.,scf_converged=True,density_valid=True,gradient=1e-8)
         calc.reference('uhf')
         for guess in ['a','b']:
             self.assertEqual([e[1:] for e in events if e[0]==guess],
@@ -154,6 +156,38 @@ class ProtocolTests(unittest.TestCase):
         tables=report.rows_for(meta,[],{})
         self.assertEqual(tables['Statistics'][0]['n_paired'],0)
         self.assertIsNone(tables['Statistics'][0]['RMSE_available_pct'])
+
+    def test_failed_reference_means_post_method_was_not_run(self):
+        calc=run.Calculation.__new__(run.Calculation)
+        calc.cfg={};calc.posts={}
+        calc.reference=lambda *args:(None,dict(valid=False,error='No converged admissible SCF reference'))
+        with patch('sys.stdout'),patch('sys.stderr'):
+            uhf,_=calc.evaluate('uhf');ob,_=calc.evaluate('obmp2')
+        self.assertEqual(uhf['status'],'reference_failed')
+        self.assertEqual(ob['status'],'not_run_reference_failed')
+        self.assertIsNone(ob['post_converged']);self.assertEqual(ob['densities'],{})
+        legacy=dict(ob,status='error');legacy.pop('error_stage')
+        self.assertEqual(report.record_status(legacy),'not_run_reference_failed')
+
+    def test_failed_newton_follow_does_not_claim_final_instability(self):
+        calc=run.Calculation.__new__(run.Calculation)
+        calc.cfg=dict(scf_policy='multiguess',guesses=['a'],stability_cycles=2,scf_grad_tol=1e-7)
+        calc.refs={};calc.candidates=[]
+        class MF:
+            converged=True;mo_coeff=None;mo_occ=None;calls=0
+            def kernel(self,**kw):
+                self.calls+=1
+                if self.calls>1:self.converged=False
+            def newton(self):return self
+            def stability(self,**kw):return None,None,False,None
+        calc.factory=lambda source:MF()
+        calc.scf_info=lambda mf:dict(valid=mf.converged,scf_converged=mf.converged,
+                                    density_valid=True,energy_Eh=-1.,gradient=2e-7)
+        calc.reference('uhf')
+        row=calc.candidates[0]
+        self.assertIsNone(row['stable']);self.assertFalse(row['valid'])
+        self.assertIn('stability_not_established',row['rejection_reasons'])
+        self.assertIn('gradient_above_tolerance',row['rejection_reasons'])
 
     def test_spin_reversal_at_ms_zero_preserves_branch(self):
         from types import SimpleNamespace

@@ -9,6 +9,16 @@ from pathlib import Path
 ANALYTIC={'uhf','pbe','pbe0','b3lyp'}
 
 
+def record_status(record):
+    status=record.get('status','missing')
+    # Older checkpoints used a generic error for all downstream methods.
+    if (not record.get('valid') and not record.get('scf',{}).get('valid',True)
+            and (record.get('error_stage')=='scf_reference'
+                 or 'No converged admissible SCF reference' in (record.get('error') or ''))):
+        return 'reference_failed' if record.get('method')==record.get('source') else 'not_run_reference_failed'
+    return status
+
+
 def definitions(method,mode,fields):
     names=['analytic' if method in ANALYTIC else 'determinant']
     if method not in ANALYTIC and mode in ('dm','both'):
@@ -38,7 +48,7 @@ def rows_for(meta,cases,reference):
         for method in cfg['methods']:
             zero=zeros.get(method,{})
             energies.append(dict(molecule=name,method=method,energy_Eh=zero.get('energy_Eh') if zero.get('valid') else None,
-                last_energy_Eh=zero.get('energy_Eh'),valid=zero.get('valid',False),status=zero.get('status','missing'),
+                last_energy_Eh=zero.get('energy_Eh'),valid=zero.get('valid',False),status=record_status(zero),
                 reference=zero.get('source'),error=zero.get('error',case.get('error'))))
             for estimator,field in definitions(method,cfg['dipole'],cfg['fields']):
                 datum=(next((d for d in case.get('finite_field',{}).get(method,[]) if d['field_au']==field),{})
@@ -49,7 +59,7 @@ def rows_for(meta,cases,reference):
                         else 'lambda_not_converged' if zero.get('lambda_converged') is False
                         else 'density_invalid' if datum and datum.get('density_valid') is False
                         else 'density_error' if zero.get('density_error') and not datum
-                        else zero.get('status','missing') if not datum else 'not_converged')
+                        else record_status(zero) if not datum else 'not_converged')
                 ref=reference.get(name)
                 if ref is not None and (not isinstance(ref,(float,int)) or not math.isfinite(ref) or ref<0):
                     raise ValueError(f'Invalid reference dipole for {name}')
@@ -68,7 +78,7 @@ def rows_for(meta,cases,reference):
         for r in case.get('zero',[])+case.get('field_points',[]):
             s=r.get('scf',{});iteration=r.get('iteration') or {}
             convergence.append(dict(molecule=name,method=r['method'],axis=r.get('axis') or 'zero',field_au=r.get('field_au',0),
-                valid=r.get('valid',False),status=r.get('status'),scf_converged=s.get('scf_converged'),
+                valid=r.get('valid',False),status=record_status(r),scf_converged=s.get('scf_converged'),
                 post_converged=r.get('post_converged'),lambda_converged=r.get('lambda_converged'),
                 scf_gradient=s.get('gradient'),reference_s2=s.get('s2'),ob_fia=iteration.get('effective_fia'),
                 cycles=iteration.get('cycles'),delta_energy=iteration.get('delta_energy'),
@@ -81,7 +91,7 @@ def rows_for(meta,cases,reference):
                     ob_overlap=r.get('ob_overlap'),error=r.get('error')))
         for r in case.get('scf_candidates',[]):
             candidates.append(dict(molecule=name,**{k:r.get(k) for k in
-                ('source','guess','selected','energy_Eh','valid','scf_converged','stable','gradient','s2','density_valid','error')}))
+                ('source','guess','selected','energy_Eh','valid','scf_converged','stable','gradient','s2','density_valid','rejection_reasons','error')}))
     estimator_order=['analytic','determinant','t2','scaled_t2','cc_lambda','finite_field']
     key=lambda r:(cfg['methods'].index(r['method']),estimator_order.index(r['estimator']),
                   cfg['fields'].index(r['field_au']) if r['field_au'] is not None else -1,r['molecule'])

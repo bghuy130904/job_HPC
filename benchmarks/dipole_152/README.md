@@ -53,6 +53,13 @@ checked only after convergence. Stability of an HF/KS reference is not a
 stability test of the final OB solution. Core pyCMF equations are unchanged;
 its convergence flag and final printed effective F_ia are recorded.
 
+The default SCF gradient tolerance is `--scf-grad-tol 1e-4`, matching the
+acceptance threshold in the earlier dipole pipeline. Newton retains PySCF's
+default AH settings. Override the gradient tolerance explicitly if needed.
+If no admissible reference exists, the reference is `reference_failed` and
+post-SCF methods are `not_run_reference_failed`; they were not attempted.
+The merge also recognizes this cause in older generic-error checkpoints.
+
 After SCF, MP2, CC or OB runs only on the selected reference. Unconverged OB,
 CC, Lambda or field calculations remain in JSON/logs but cannot populate an
 accepted dipole. Natural occupation violations are recorded, not removed from
@@ -220,7 +227,7 @@ python -u benchmarks/dipole_152/methods/obdh/calc_dipmomt_obdh.py \
   --outdir /data/giahuy/Result/OBDH/dipole_moments/sp_v2 \
   --methods uhf ump2 obmp2 obdh --basis aug-cc-pCVTZ --alpha 0.53 0.27 \
   --scf-policy multiguess --scf-cycles 200 --ob-cycles 300 \
-  --scf-tol 1e-12 --scf-grad-tol 1e-7 --ob-tol 1e-10 \
+  --scf-tol 1e-12 --scf-grad-tol 1e-4 --ob-tol 1e-10 \
   --dipole both --fields 0.0002 0.0001 0.00005 --grid 4 \
   --threads 12 --max-memory 40000
 ```

@@ -39,7 +39,7 @@ python -u "$INPUT_FILE" \
     --scf-policy "${SCF_POLICY:-multiguess}" \
     --dipole "${DIPOLE_MODE:-dm}" \
     --fields 0.0001 \
-    --scf-cycles 200 --scf-tol 1e-12 --scf-grad-tol 1e-7 \
+    --scf-cycles 200 --scf-tol 1e-12 --scf-grad-tol 1e-4 \
     --ob-cycles 300 --ob-tol 1e-10 \
     --grid 4 --scf-aux none --mp2-aux auto \
     --threads "$SLURM_CPUS_PER_TASK" --max-memory 40000 \

@@ -215,10 +215,19 @@ class Calculation:
                             orb,_,stable,_=mf.stability(internal=True,external=False,return_status=True)
                             if stable or attempt==self.cfg['stability_cycles']:break
                             mf=mf.newton();mf.kernel(mo_coeff=orb,mo_occ=mf.mo_occ)
-                            if not mf.converged:break
-                        row['stable']=bool(stable)
+                            if not mf.converged:
+                                stable=None # Previous instability describes the old orbitals.
+                                break
+                        row['stable']=bool(stable) if stable is not None else None
                 row.update(self.scf_info(mf))
                 if self.cfg['scf_policy']!='standard':row['valid']=bool(row['valid'] and row['stable'])
+                row['rejection_reasons']=[]
+                if not row['scf_converged']:row['rejection_reasons'].append('scf_not_converged')
+                if row['gradient']>self.cfg['scf_grad_tol']:row['rejection_reasons'].append('gradient_above_tolerance')
+                if not row['density_valid']:row['rejection_reasons'].append('invalid_density')
+                if not np.isfinite(row['energy_Eh']):row['rejection_reasons'].append('nonfinite_energy')
+                if self.cfg['scf_policy']!='standard' and row['stable'] is not True:
+                    row['rejection_reasons'].append('internal_unstable' if row['stable'] is False else 'stability_not_established')
                 if row['valid']:pool.append((mf,row))
             except Exception as exc:
                 row.update(error=f'{type(exc).__name__}: {exc}');traceback.print_exc()
@@ -265,7 +274,9 @@ class Calculation:
             print(f'\n=== {method} axis={axis} field={field:+.8e} ===',flush=True)
             mf,info=self.reference(source,axis,field)
             record['scf']=dict(info)
-            if mf is None:raise RuntimeError(info.get('error','SCF convergence or field branch check failed'))
+            if mf is None:
+                record['error_stage']='scf_reference'
+                raise RuntimeError(info.get('error','SCF convergence or field branch check failed'))
             want_dm=axis is None and self.cfg['dipole'] in ('dm','both')
             if method in ('uhf','pbe','pbe0','b3lyp'):
                 record.update(energy_Eh=float(mf.e_tot),post_converged=True)
@@ -349,7 +360,8 @@ class Calculation:
                             traceback.print_exc()
         except Exception as exc:
             record.update(error=f'{type(exc).__name__}: {exc}');traceback.print_exc()
-            record['valid']=False;record['status']='error'
+            record['valid']=False
+            record['status']=('reference_failed' if method==source else 'not_run_reference_failed') if record.get('error_stage')=='scf_reference' else 'error'
         record['seconds']=time.time()-start
         print(f'=== DONE {method} axis={axis} field={field:+.8e} status={record["status"]} seconds={record["seconds"]:.1f} ===',flush=True)
         self.posts[key]=(record,state)
@@ -484,7 +496,7 @@ def parser(default_methods=None):
     p.add_argument('--guesses',nargs='+',default=['minao','atom','1e'])
     p.add_argument('--stability-cycles',type=int,default=6)
     p.add_argument('--scf-tol',type=float,default=1e-10)
-    p.add_argument('--scf-grad-tol',type=float,default=1e-6)
+    p.add_argument('--scf-grad-tol',type=float,default=1e-4)
     p.add_argument('--scf-cycles',type=int,default=200)
     p.add_argument('--ob-tol',type=float,default=1e-8)
     p.add_argument('--ob-cycles',type=int,default=300)
