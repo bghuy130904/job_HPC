@@ -37,7 +37,7 @@ python -u "$INPUT_FILE" \
     --basis "${BASIS:-aug-cc-pCVQZ}" \
     --alpha "${ALPHA_X:-0.5}" "${ALPHA_C:-0.4}" \
     --scf-policy "${SCF_POLICY:-multiguess}" \
-    --dipole "${DIPOLE_MODE:-dm}" \
+    --dipole "${DIPOLE_MODE:-both}" \
     --fields 0.0001 \
     --scf-cycles 200 --scf-tol 1e-10 --scf-grad-tol 1e-4 \
     --ob-cycles 300 --ob-tol 1e-8 \
