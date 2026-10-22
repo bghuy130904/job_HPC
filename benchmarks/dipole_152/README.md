@@ -245,9 +245,26 @@ OUTPUT_DIR and CODE_ROOT. Multiguess **with stability on every guess** is the te
 Set SCF_POLICY=standard only for the no-wrapper comparison.
 
 ```bash
-SCF_POLICY=multiguess sbatch benchmarks/dipole_152/jobs/obdh/dipole_sp.sh
-bash benchmarks/dipole_152/jobs/obdh/merge_sp.sh
+bash benchmarks/dipole_152/jobs/obdh/dipole_sp.sh --submit
+bash benchmarks/dipole_152/jobs/obdh/dipole_sp.sh --merge
 ```
+
+For OB SP scaling, edit only `ALPHA=(0.50 0.40)` near the top of
+`jobs/obdh/dipole_sp.sh`. The pair sets Python `--alpha`, the output directory
+`sp_scaling/ax_0.50_ac_0.40`, and the submitted job name
+`wftdipolesp_ax_0.50_ac_0.40`. `--submit` calls sbatch with the computed name
+and creates scheduler log directories first; shell variables in `#SBATCH`
+directives cannot do this. `--merge` uses the same pair/output directory.
+Use these Bash commands from the login node. Direct `sbatch dipole_sp.sh`
+also calculates the output path, but uses the generic SBATCH job name.
+`ALPHA_X`/`ALPHA_C` environment overrides remain available. Decimal strings
+are preserved without rounding (including values such as 0.125); use a
+consistent spelling for folder names. An additional Python `--alpha` argument
+is rejected so that folder/job names cannot silently describe a different pair.
+The submitted environment freezes the pair and output directory. Changing the
+file for the next submission does not alter an already submitted job.
+For merging an older pair after editing ALPHA, set OUTPUT_DIR explicitly or
+use the existing `merge_sp.sh`. These changes apply only to the OB SP job.
 
 Merge only after the array completes, or submit it with an `afterany` dependency
 to inspect incomplete jobs. Merge script names are `merge_sp.sh` and
