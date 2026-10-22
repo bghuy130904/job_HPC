@@ -166,8 +166,8 @@ def draw(mue, system_mue, counts, configs, hf, output, vmax, dpi):
     ax.set_yticks(range(9), labels)
     ax.set_xlabel('alpha_c')
     ax.set_ylabel('alpha_x')
-    ax.set_title('A. MUE \n Grey points: discovegence->missing results',
-                 fontweight='bold', pad=12)
+    # ax.set_title('A. MUE \n Grey points: discovegence->missing results',
+    #              fontweight='bold', pad=12)
     fig.colorbar(im, ax=ax, shrink=.78, label='MUE (kcal/mol)')
     index = round(hf * 10) - 1
     colors = ('#0072B2', '#E69F00', '#009E73', '#CC79A7')
