@@ -213,7 +213,7 @@ def main():
                         help='Định dạng PNG hoặc PDF tùy phần mở rộng.')
     parser.add_argument('--hf', type=float, default=.9, help='Hệ số HF của biểu đồ B; 0.1–0.9.')
     parser.add_argument('--vmax', type=float, default=30, help='Giới hạn trên thang màu MUE.')
-    parser.add_argument('--dpi', type=int, default=180)
+    parser.add_argument('--dpi', type=int, default=400)
     args = parser.parse_args()
     if not any(np.isclose(args.hf, value) for value in ALPHAS):
         parser.error('--hf phải là một trong 0.1, 0.2, ..., 0.9')
@@ -221,7 +221,7 @@ def main():
         parser.error('--vmax và --dpi phải dương')
     try:
         mue, system_mue, counts, configs, found = read_scan(args.input.expanduser())
-        output = args.output.expanduser() if args.output else args.input.expanduser().with_name('SIE_UHF_scaling.png')
+        output = args.output.expanduser() if args.output else args.input.expanduser().with_name('SIE_UHF_scaling.pdf')
         draw(mue, system_mue, counts, configs, args.hf, output, args.vmax, args.dpi)
     except (OSError, ValueError) as exc:
         parser.exit(1, f'Lỗi: {exc}\n')
