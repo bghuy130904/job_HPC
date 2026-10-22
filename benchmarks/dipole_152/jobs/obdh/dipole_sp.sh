@@ -12,7 +12,7 @@
 #SBATCH --array=0-70%3
 set -euo pipefail
 # Change this pair only. Use: bash dipole_sp.sh --submit
-ALPHA=(0.50 0.70)
+ALPHA=(0.50 0.80)
 ALPHA_X="${ALPHA_X:-${ALPHA[0]}}"
 ALPHA_C="${ALPHA_C:-${ALPHA[1]}}"
 for value in "$ALPHA_X" "$ALPHA_C"; do
