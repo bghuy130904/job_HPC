@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=obdh_dipole_sp
+#SBATCH --job-name=wftdipolesp0504
 #SBATCH --output=/data/giahuy/Result/OBDH/dipole_moments/_output/dipole_sp_%A_%a.out
 #SBATCH --error=/data/giahuy/Result/OBDH/dipole_moments/_error/dipole_sp_%A_%a.err
 #SBATCH --partition=Bigmem
