@@ -9,7 +9,7 @@ from unittest.mock import patch
 import numpy as np
 from pyscf import dft,gto
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
-import run_sie as sie
+import run_sie_v1 as sie
 
 
 class BenchmarkAdapterTests(unittest.TestCase):

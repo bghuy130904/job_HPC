@@ -15,7 +15,7 @@ import pandas as pd
 from pyscf import df, lib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'tools'))
-import run_sie_scaling as sie
+import run_sie_v2 as sie
 
 
 class ReportingTests(unittest.TestCase):

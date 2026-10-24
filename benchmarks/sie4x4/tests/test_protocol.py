@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
-import run_sie as sie
+import run_sie_v1 as sie
 from collect_SIE4x4 import parse
 
 

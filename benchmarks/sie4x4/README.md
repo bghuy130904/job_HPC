@@ -1,6 +1,11 @@
-# SIE4x4 scaling_v2
+# SIE4x4 v1 và v2
 
-Driver mới: `methods/obdh/calc_OBDH_scaling.py` -> `tools/run_sie_scaling.py`.
+Hai driver được đặt tên rõ theo phiên bản: `tools/run_sie_v1.py` và
+`tools/run_sie_v2.py`. Mỗi lần gọi vẫn nhận một cặp `--alpha`.
+`tools/run_sie.py` chỉ là file chuyển tiếp cho import/lệnh cũ; không chứa
+bản sao pipeline. Các file ORCA được giữ nguyên.
+
+Driver mới: `methods/obdh/calc_OBDH_scaling.py` -> `tools/run_sie_v2.py`.
 `obdh_1st` được định nghĩa là **hội tụ DFT base trước, rồi đánh giá một lần
 OBMP2 correlation trên orbital/occupation/orbital energy DFT đó**:
 
@@ -80,7 +85,7 @@ hoặc bằng chứng tái hiện số liệu của paper.
 
 # SIE4x4: guesses, nghiệm và benchmark
 
-`tools/run_sie.py` là protocol chung. `methods/dft/calc_DFT.py` và
+`tools/run_sie_v1.py` là protocol chung. `methods/dft/calc_DFT.py` và
 `methods/obdh/calc_OBDH.py` chỉ là entry point; không giữ hai bản logic SCF.
 Input hình học duy nhất: `inputs/input.json`. Kết quả cũ trong `results/sie4x4/*/legacy`
 được giữ để tham khảo, không coi là kết quả đã xác minh của pipeline mới.
@@ -163,7 +168,7 @@ Từ root `job_HPC`, với environment có PySCF, NumPy, SciPy, pandas, openpyxl
 
 ```bash
 python -m unittest discover -s benchmarks/sie4x4/tests -v
-python benchmarks/sie4x4/tools/run_sie.py \
+python benchmarks/sie4x4/tools/run_sie_v1.py \
   --outdir results/sie4x4/validation/avdz-grid4 \
   --basis aug-cc-pVDZ --grid 4 --threads 4
 ```
@@ -171,7 +176,7 @@ python benchmarks/sie4x4/tools/run_sie.py \
 Thử nhanh trước khi full benchmark:
 
 ```bash
-python benchmarks/sie4x4/tools/run_sie.py \
+python benchmarks/sie4x4/tools/run_sie_v1.py \
   --outdir results/sie4x4/validation/quick \
   --basis aug-cc-pVDZ --grid 3 --threads 2 \
   --systems He2_plus --points R_1.0 dissociation_limit
