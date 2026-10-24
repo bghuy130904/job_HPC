@@ -10,6 +10,7 @@ import contextlib
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import traceback
 from pathlib import Path
@@ -78,6 +79,91 @@ def load_neighbors(directories, system, point, geometry):
                                    coeff=saved['coeff'].copy(), occ=saved['occ'].copy(),
                                    epsilon=saved['epsilon'].copy()))
     return result
+
+
+def neighbor_ready(directory, cfg, expected_alpha=None):
+    """Require finished case checkpoints and saved orbitals for the requested scope."""
+    try:
+        config = json.loads((directory/'config.json').read_text())
+        if config.get('protocol') != PROTOCOL or config.get('basis') != cfg.basis or config.get('grid') != cfg.grid:
+            return False
+        if config.get('input_sha256') != hashlib.sha256(cfg.input.read_bytes()).hexdigest():
+            return False
+        if expected_alpha is not None and not np.allclose(config['alpha'], expected_alpha, atol=1e-10, rtol=0):
+            return False
+        fingerprint = digest(config)
+        for system in cfg.systems:
+            for point in cfg.points:
+                case = json.loads((directory/f'{system}__{point}.json').read_text())
+                if case.get('fingerprint') != fingerprint:
+                    return False
+                if not any((directory/'orbitals').glob(f'{system}__{point}__*.npz')):
+                    return False
+        return True
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def nearby_alphas(alpha, step):
+    ax, ac = alpha
+    lower, upper = (.1,.9) if all(.1 <= v <= .9 for v in alpha) else (0.,1.)
+    seen = set()
+    for pair in [(ax, ac-step), (ax-step, ac), (ax, ac+step), (ax+step, ac)]:
+        pair = tuple(round(v,10) for v in pair)
+        if all(lower <= v <= upper for v in pair) and pair not in seen:
+            seen.add(pair)
+            yield pair
+
+
+def configure_neighbors(cfg):
+    cfg.neighbor_root = cfg.neighbor_root or cfg.outdir.parent
+    if cfg.neighbor_dir:
+        cfg.neighbor_selection = 'explicit'
+        return
+    if cfg.neighbor_mode == 'off':
+        cfg.neighbor_selection = 'disabled'
+        return
+    # Freeze the source chosen on the first invocation. Newly completed adjacent
+    # runs must not silently change the reference during resume.
+    saved_config = cfg.outdir/'config.json'
+    if saved_config.exists():
+        saved = json.loads(saved_config.read_text())
+        if saved.get('neighbor_mode') == 'auto' and 'neighbor_selection' in saved:
+            cfg.neighbor_dir = [Path(p) for p in saved.get('neighbor_dir', [])]
+            cfg.neighbor_selection = saved['neighbor_selection']
+            return
+    for alpha in nearby_alphas(cfg.alpha, cfg.neighbor_step):
+        stem = f'recalc_obdh_({alpha[0]:g},{alpha[1]:g})'
+        for directory in [cfg.neighbor_root/(stem+'_C1_C4'),cfg.neighbor_root/stem]:
+            if directory.resolve() != cfg.outdir.resolve() and neighbor_ready(directory, cfg, alpha):
+                cfg.neighbor_dir = [directory.resolve()]
+                cfg.neighbor_selection = 'auto_completed_adjacent'
+                return
+    if not cfg.prepare_neighbor:
+        cfg.neighbor_selection = 'none_available_C2_not_performed'
+        return
+    # A supporting run has C2 disabled to avoid recursive preparation. It is
+    # stored inside this run and never presented as another primary grid result.
+    alpha = next(nearby_alphas(cfg.alpha, cfg.neighbor_step))
+    directory = (cfg.outdir/'neighbor_reference').resolve()
+    command = [sys.executable, str(Path(__file__).resolve()), '--input',str(cfg.input.resolve()),
+        '--outdir',str(directory),'--alpha',*[str(v) for v in alpha],
+        '--methods','obdh','--ob-init',*cfg.ob_init,'--neighbor-mode','off',
+        '--run-role','neighbor_reference','--ob-restarts','0','--ob-probe-directions','0',
+        '--basis',cfg.basis,'--grid',str(cfg.grid),'--scf-aux',cfg.scf_aux,'--ob-aux',cfg.ob_aux,
+        '--scf-policy',cfg.scf_policy,'--scf-tol',str(cfg.scf_tol),'--scf-grad-tol',str(cfg.scf_grad_tol),
+        '--scf-cycles',str(cfg.scf_cycles),'--stability-cycles',str(cfg.stability_cycles),
+        '--ob-cycles',str(cfg.ob_cycles),'--ob-tol',str(cfg.ob_tol),'--density-tol',str(cfg.density_tol),
+        '--threads',str(cfg.threads),'--max-memory',str(cfg.max_memory),
+        '--systems',*cfg.systems,'--points',*cfg.points]
+    print(f'C2: preparing supporting neighbor alpha={alpha} in {directory}',flush=True)
+    process = subprocess.run(command, check=False)
+    # A nonzero exit may mean some OB basins failed. Converged SCF orbitals and
+    # any converged OB orbitals are still useful, provided every case finished.
+    if not neighbor_ready(directory, cfg, alpha):
+        raise RuntimeError(f'C2 neighbor preparation incomplete (exit {process.returncode}): {directory}')
+    cfg.neighbor_dir = [directory]
+    cfg.neighbor_selection = 'prepared_supporting_adjacent'
 
 
 def seed_pool(mol, atoms, groups, source, cfg, ob_aux, neighbors, rows):
@@ -345,11 +431,79 @@ def orbital_probes(mol, groups, carrier, source, guess, cfg, ob_aux):
     return rows
 
 
+def restart_checks(mol, groups, carrier, anchor, cfg, ob_aux, system, point, geometry):
+    """Perturb the final OB orbitals and reconverge OB at the SAME Alpha."""
+    from scipy.linalg import expm
+    coeff = np.asarray(carrier.mo_coeff).copy()
+    occ = np.asarray(carrier.mo_occ)
+    eps = np.asarray(carrier.mo_energy)
+    overlap = mol.intor_symmetric('int1e_ovlp')
+    slices = mol.aoslice_by_atom()
+    weights = np.zeros(mol.nao_nr())
+    for sign, group in zip((1.,-1.),groups[:2]):
+        for atom in group:
+            weights[slices[atom,2]:slices[atom,3]] = sign
+    operator = .5*(weights[:,None]*overlap + overlap*weights[None,:])
+    best = None
+    for spin in range(2):
+        occupied, virtual = np.flatnonzero(occ[spin]>0), np.flatnonzero(occ[spin]==0)
+        populations = np.einsum('pi,pq,qi->i',coeff[spin],operator,coeff[spin])
+        for i in occupied:
+            for a in virtual:
+                score = abs(populations[i]-populations[a])/max(abs(eps[spin,a]-eps[spin,i]),.02)
+                if best is None or score > best[0]:
+                    best = score,spin,i,a
+    if best is None:
+        return [],[],[]
+    trials, candidates, iterations = [],[],[]
+    rng = np.random.default_rng(821)
+    for trial in range(cfg.ob_restarts):
+        rotations = np.zeros((2,occ.shape[1],occ.shape[1]))
+        if trial < 2:
+            _,spin,i,a = best
+            rotations[spin,i,a] = 1. if trial == 0 else -1.
+            rotations[spin,a,i] = -rotations[spin,i,a]
+            kind = 'fragment_transfer_plus' if trial == 0 else 'fragment_transfer_minus'
+        else:
+            for spin in range(2):
+                occupied,virtual = np.flatnonzero(occ[spin]>0),np.flatnonzero(occ[spin]==0)
+                block = rng.normal(size=(len(occupied),len(virtual)))
+                norm = np.linalg.norm(block)
+                if norm: block /= norm*np.sqrt(2.)
+                rotations[spin][np.ix_(occupied,virtual)] = block
+                rotations[spin][np.ix_(virtual,occupied)] = -block.T
+            kind = 'random_occupied_virtual'
+        mf = carrier.copy()
+        mf.mo_coeff = tuple(coeff[s] @ expm(cfg.ob_restart_angle*rotations[s]) for s in range(2))
+        dm = np.asarray(mf.make_rdm1())
+        guess = f'restart_{trial+1}_from_{anchor["guess"]}'
+        seed = dict(guess=guess,mf=mf,dm=dm,is_scf=False,provenance=f'OB_restart:{anchor["guess"]}')
+        row,trace,final = ob_run(mol,groups,seed,anchor['source'],cfg,ob_aux)
+        row.update(candidate_origin='ob_restart',restart_of=anchor['guess'])
+        candidates.append(row)
+        iterations += [dict(method='obdh',source=anchor['source'],guess=guess,**r) for r in trace]
+        valid = bool(row['valid'])
+        if valid:
+            save_orbitals(cfg.outdir/'orbitals',system,point,anchor['source'],guess,'obdh',final,geometry,cfg.alpha)
+        distance = base.density_distance(np.asarray(final.make_rdm1()),np.asarray(carrier.make_rdm1()),overlap) if valid else None
+        delta = row['energy']-anchor['energy'] if valid else None
+        trials.append(dict(source=anchor['source'],anchor_guess=anchor['guess'],restart_guess=guess,
+            perturbation=kind,angle_rad=cfg.ob_restart_angle,restart_converged=valid,
+            E_anchor_Ha=anchor['energy'],E_restart_Ha=row.get('energy'),delta_energy_Ha=delta,
+            density_distance=distance,returned_same_density=distance < cfg.density_tol if valid else None,
+            lower_solution_found=delta < -cfg.restart_energy_tol if valid else None,
+            anchor_label=anchor.get('label'),restart_label=row.get('label'),
+            status='restart_converged' if valid else 'restart_not_converged',
+            formal_ob_stability='not_certified_by_restarts'))
+    return trials,candidates,iterations
+
+
 def report(cases, cfg):
     candidates = [dict(system=c['system'], point=c['point'], **r) for c in cases for r in c['candidates']]
     iterations = [dict(system=c['system'], point=c['point'], **r) for c in cases for r in c['iterations']]
     probes = [dict(system=c['system'], point=c['point'], **r) for c in cases for r in c.get('orbital_probes', [])]
-    selected, convergence, paired = [], [], []
+    restarts = [dict(system=c['system'], point=c['point'], **r) for c in cases for r in c.get('ob_restarts', [])]
+    selected, convergence, paired, neighbor_comparison = [], [], [], []
     methods = ['dft_base'] + cfg.methods
     for case in cases:
         for method in methods:
@@ -386,6 +540,21 @@ def report(cases, cfg):
                 delta_DFT_Ha=full['E_DFT_Ha']-one['E_DFT_Ha'] if valid else None,
                 delta_corr_scaled_Ha=full['E_corr_scaled_Ha']-one['E_corr_scaled_Ha'] if valid else None,
                 first_label=one.get('label'), full_label=full.get('label') if full else None))
+        for source in cfg.ob_init:
+            obs = [r for r in case['candidates'] if r['stage']=='obdh' and r['source']==source
+                   and r.get('candidate_origin')!='ob_restart']
+            ordinary = choose([r for r in obs if not r.get('seed_provenance')],'obdh')
+            neighbor = choose([r for r in obs if r.get('seed_provenance')],'obdh')
+            valid = bool(ordinary and neighbor)
+            neighbor_comparison.append(dict(system=case['system'],point=case['point'],source=source,
+                paired_valid=valid,ordinary_guess=ordinary.get('guess') if ordinary else None,
+                neighbor_guess=neighbor.get('guess') if neighbor else None,
+                E_ordinary_Ha=ordinary.get('energy') if ordinary else None,
+                E_neighbor_Ha=neighbor.get('energy') if neighbor else None,
+                delta_neighbor_minus_ordinary_Ha=neighbor['energy']-ordinary['energy'] if valid else None,
+                ordinary_label=ordinary.get('label') if ordinary else None,
+                neighbor_label=neighbor.get('label') if neighbor else None,
+                status='compared' if valid else 'no_valid_OB_pair_see_SCF_candidates'))
     lookup = {(r['system'], r['point'], r['method'], r['init_source']): r for r in selected}
     errors, derivatives = [], []
     for row in selected:
@@ -417,6 +586,36 @@ def report(cases, cfg):
             RMSE_16=float(np.sqrt(np.mean(np.square(sample)))) if complete else None,
             MaxAE_16=float(np.max(np.abs(sample))) if complete else None,
             status='complete_16' if complete else 'Not convergence / incomplete data'))
+    checks = []
+    for case in cases:
+        identity = dict(system=case['system'],point=case['point'])
+        trials = case.get('ob_restarts', [])
+        active = [r for r in case['candidates'] if r['stage']=='obdh' and r.get('valid')]
+        c1_complete = bool(active and all(sum(t['source']==s and t['restart_converged'] for t in trials)>=getattr(cfg,'ob_restarts',0)
+                                          for s in cfg.ob_init) and trials)
+        checks.append(dict(**identity,check='C1_OB_perturb_reconverge',
+            status='tested' if c1_complete else 'not_tested_or_inconclusive',attempts=len(trials),
+            lower_solution_found=any(t.get('lower_solution_found') for t in trials),
+            different_density_found=any(t['restart_converged'] and not t['returned_same_density'] for t in trials),
+            detail='Empirical OB restart test; not a full Hessian/stability certificate'))
+        attempts = [r for r in case['candidates'] if (r['stage']=='scf' and r.get('neighbor_path'))
+                    or (r['stage']=='obdh' and r['guess'].startswith('direct_neighbor_'))]
+        direct = [r for r in attempts if r['stage']=='obdh']
+        c2_complete = bool(direct and all(any(r['source']==source and r.get('valid') for r in direct)
+                                         for source in cfg.ob_init))
+        checks.append(dict(**identity,check='C2_neighbor_initialization',
+            status='tested' if c2_complete else 'SCF_neighbor_only_or_OB_continuation_failed',
+            attempts=len(attempts),detail=getattr(cfg,'neighbor_selection','not_configured')))
+        relevant = [r for r in errors if r['system']==case['system'] and r['point']==case['point']]
+        if case['point']==base.DL:
+            relevant = [r for r in selected if r['system']==case['system'] and r['point']==case['point']]
+        checks.append(dict(**identity,check='C3_signed_errors',
+            status='tested' if relevant and all(r['valid'] for r in relevant) else 'blocked_missing_energy',
+            attempts=len(relevant),detail='DL is the energy reference; signed errors apply to finite R'))
+        relevant = [r for r in paired if r['system']==case['system'] and r['point']==case['point']]
+        checks.append(dict(**identity,check='C4_same_DFT_seed_decomposition',
+            status='tested' if any(r['paired_valid'] for r in relevant) else 'blocked_missing_pair',
+            attempts=len(relevant),detail='Converged DFT -> one OBMP2 correction versus full OBDH from the same seed'))
     readme = [
         ('protocol', PROTOCOL),
         ('units', 'selected.energy and energy_components: Hartree; errors/statistics/reaction component differences: kcal/mol.'),
@@ -429,6 +628,8 @@ def report(cases, cfg):
         ('frozen_derivatives', 'Component differences at the supplied state; not total derivatives of the self-consistent energy with respect to Alpha.'),
         ('OB_stability', 'not_tested: stable SCF seeds do not certify stability of the OB solution. Convergence and solution labels are reported separately.'),
         ('orbital_probes', 'Directional orbital-energy checks on converged OB states, fixed occupations/eigenvalues, recomputed amplitudes/density energy. A downhill direction is evidence against an energy minimum; absence of one is NOT a stability certificate or full Hessian.'),
+        ('ob_restarts', 'C1: perturb the selected converged OB state and reconverge OB at the same Alpha; report final density/energy differences and lower solutions. This is distinct from the fixed-state energy probes.'),
+        ('C1_C4', 'Per-case coverage. tested means that diagnostic was performed, not that the solution is physically correct or mathematically certified stable.'),
         ('reference', 'D_e=(E_supermolecule(R_DL)-E_supermolecule(R))*627.5094740631. No isolated-fragment replacement.'),
         ('populations', 'Mulliken fragment charge/spin; determinant S2. Labels never reject a result.'),
         ('fit_basis', 'DFT SCF and OB use the same OB auxiliary basis so the converged DFT term is the one evaluated by OBDH. UHF SCF keeps scf_aux.'),
@@ -439,7 +640,8 @@ def report(cases, cfg):
     selected_view = [{k:v for k,v in row.items() if k not in component_keys} for row in selected]
     frames = dict(statistics=statistics, selected=selected_view, convergence=convergence, errors=errors,
                   paired_relaxation=paired, energy_components=components, frozen_derivatives=derivatives,
-                  candidates=candidates, iterations=iterations, orbital_probes=probes,
+                  candidates=candidates, iterations=iterations, orbital_probes=probes, ob_restarts=restarts,
+                  C1_C4=checks, neighbor_comparison=neighbor_comparison,
                   readme=[dict(item=k, meaning=v) for k, v in readme])
     frames['config'] = [dict(key=k, value=str(v)) for k,v in vars(cfg).items()]
     frames['config'] += [dict(key=f'resolved_ob_auxbasis.{system}',value=str(next(c['resolved_ob_auxbasis'] for c in cases if c['system']==system and 'resolved_ob_auxbasis' in c)))
@@ -481,6 +683,12 @@ def main():
     p.add_argument('--methods', nargs='+', choices=METHODS, default=['obdh','obdh_1st'])
     p.add_argument('--ob-init', nargs='+', choices=['uhf','dft'], default=['uhf','dft'])
     p.add_argument('--neighbor-dir', nargs='*', type=Path, default=[])
+    p.add_argument('--neighbor-mode',choices=['auto','off'],default='auto')
+    p.add_argument('--neighbor-root',type=Path)
+    p.add_argument('--neighbor-step',type=float,default=.1)
+    p.add_argument('--prepare-neighbor',action='store_true',help='Prepare one supporting adjacent run when none is ready.')
+    p.add_argument('--run-role',choices=['benchmark','neighbor_reference'],default='benchmark')
+    p.add_argument('--confirm-c1-c4',action='store_true',help='Require all four diagnostic groups; missing coverage gives nonzero exit.')
     p.add_argument('--scf-policy', choices=['standard','multiguess'], default='multiguess')
     p.add_argument('--basis', default='aug-cc-pVDZ')
     p.add_argument('--grid', type=int, default=4)
@@ -498,22 +706,35 @@ def main():
     p.add_argument('--ob-probe-directions', type=int, default=2,
                    help='Directional energy probes per converged OB candidate; 0 disables. Not a full Hessian.')
     p.add_argument('--ob-probe-step', type=float, default=1e-4)
+    p.add_argument('--ob-restarts',type=int,default=2)
+    p.add_argument('--ob-restart-angle',type=float,default=.05)
+    p.add_argument('--restart-energy-tol',type=float,default=1e-7)
     p.add_argument('--systems', nargs='+', choices=list(base.REF), default=list(base.REF))
     p.add_argument('--points', nargs='+', choices=base.POINTS+[base.DL], default=base.POINTS+[base.DL])
     cfg = p.parse_args()
-    for directory in cfg.neighbor_dir:
-        if directory.resolve() == cfg.outdir.resolve():
-            p.error('Neighbor directory must be a different, completed run')
-        if not (directory/'orbitals').is_dir():
-            p.error(f'Neighbor directory has no saved orbitals: {directory}')
     if any(not np.isfinite(a) or not 0 <= a <= 1 for a in cfg.alpha):
         p.error('Alpha must be finite and between zero and one')
     if cfg.ob_cycles < 1 or cfg.scf_cycles < 1 or cfg.stability_cycles < 0 or cfg.max_memory <= 0 or cfg.ob_probe_directions < 0 or cfg.ob_probe_step <= 0 or cfg.threads < 1:
         p.error('Invalid cycle limit or memory budget')
     if any(not np.isfinite(v) or v <= 0 for v in [cfg.ob_tol,cfg.scf_tol,cfg.scf_grad_tol,cfg.max_memory,cfg.ob_probe_step,cfg.density_tol]):
         p.error('Tolerances must be positive')
+    if cfg.ob_restarts < 0 or any(not np.isfinite(v) or v <= 0 for v in [cfg.neighbor_step,cfg.ob_restart_angle,cfg.restart_energy_tol]):
+        p.error('Invalid neighbor/restart settings')
+    if cfg.neighbor_step > 1:
+        p.error('neighbor-step must not exceed one')
+    if cfg.confirm_c1_c4 and (not {'obdh','obdh_1st'}.issubset(cfg.methods) or 'dft' not in cfg.ob_init or cfg.ob_restarts < 2 or cfg.neighbor_mode=='off'):
+        p.error('C1-C4 confirmation requires obdh and obdh_1st, DFT init, two OB restarts, and neighbor mode auto')
     lib.num_threads(cfg.threads)
     cfg.outdir.mkdir(parents=True, exist_ok=True)
+    configure_neighbors(cfg)
+    for directory in cfg.neighbor_dir:
+        if directory.resolve() == cfg.outdir.resolve():
+            p.error('Neighbor directory must be a different run')
+        if not (directory/'orbitals').is_dir():
+            p.error(f'Neighbor directory has no saved orbitals: {directory}')
+    print(f'C2 neighbor selection: {cfg.neighbor_selection}; sources: {[str(p) for p in cfg.neighbor_dir]}',flush=True)
+    if cfg.confirm_c1_c4 and not cfg.neighbor_dir:
+        p.error('C2 has no completed source; enable --prepare-neighbor or provide --neighbor-dir')
     data = json.loads(cfg.input.read_text())
     from pycmf.OBDH import main as core, uobdh_solver as solver
     config = base.clean_json({k: str(v) if isinstance(v, Path) else [str(x) for x in v] if k=='neighbor_dir' else v for k,v in vars(cfg).items()})
@@ -541,7 +762,7 @@ def main():
                 report(cases, cfg)
                 continue
             print(f'Running {system} {point} alpha={cfg.alpha}', flush=True)
-            case = dict(system=system, point=point, fingerprint=fingerprint, candidates=[], iterations=[], orbital_probes=[])
+            case = dict(system=system, point=point, fingerprint=fingerprint, candidates=[], iterations=[], orbital_probes=[],ob_restarts=[])
             with Path(str(stem)+'.log').open('w', buffering=1) as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
                 try:
                     atoms = data[system][point]
@@ -550,6 +771,8 @@ def main():
                     groups = base.fragments(system, atoms)
                     geometry = digest(dict(atoms=atoms, basis=cfg.basis, charge=1, spin=1))
                     neighbors = load_neighbors(cfg.neighbor_dir, system, point, geometry)
+                    case['neighbor_files'] = [n['path'] for n in neighbors]
+                    converged_states = []
                     ob_aux = df.DF(mol, auxbasis=df.make_auxbasis(mol, mp2fit=True) if cfg.ob_aux=='auto' else cfg.ob_aux)
                     ob_aux.max_memory = cfg.max_memory
                     case['resolved_ob_auxbasis'] = ob_aux.auxbasis
@@ -576,6 +799,7 @@ def main():
                                 case['candidates'].append(row)
                                 case['iterations'] += [dict(method='obdh', source=source, guess=seed['guess'], **r) for r in trace]
                                 if row['valid']:
+                                    converged_states.append((row,carrier))
                                     save_orbitals(cfg.outdir/'orbitals', system, point, source, seed['guess'], 'obdh', carrier, geometry, cfg.alpha)
                                     if cfg.ob_probe_directions:
                                         try:
@@ -607,6 +831,7 @@ def main():
                                 case['candidates'].append(row)
                                 case['iterations'] += [dict(method='obdh', source=source, guess=seed['guess'], **r) for r in trace]
                                 if row['valid']:
+                                    converged_states.append((row,carrier))
                                     save_orbitals(cfg.outdir/'orbitals', system, point, source, seed['guess'], 'obdh', carrier, geometry, cfg.alpha)
                                     if cfg.ob_probe_directions:
                                         try:
@@ -614,6 +839,18 @@ def main():
                                         except Exception as exc:
                                             case['orbital_probes'].append(dict(source=source,guess=seed['guess'],exception=str(exc),ob_stability='probe_failed'))
                                             traceback.print_exc()
+                    # C1 is applied once per source to its lowest converged OB
+                    # candidate, after normal guesses and neighbor continuation.
+                    if cfg.ob_restarts and 'obdh' in cfg.methods:
+                        for source in cfg.ob_init:
+                            states = [(r,mf) for r,mf in converged_states if r['source']==source]
+                            if not states:
+                                continue
+                            anchor,carrier = min(states,key=lambda pair:pair[0]['energy'])
+                            trials,rows,trace = restart_checks(mol,groups,carrier,anchor,cfg,ob_aux,system,point,geometry)
+                            case['ob_restarts'] += trials
+                            case['candidates'] += rows
+                            case['iterations'] += trace
                 except Exception as exc:
                     case['exception'] = str(exc)
                     traceback.print_exc()
@@ -624,9 +861,15 @@ def main():
             report(cases, cfg)
     selected = report(cases, cfg)
     failed = sum(not row['valid'] for row in selected)
+    incomplete = 0
+    if cfg.confirm_c1_c4:
+        coverage = pd.read_csv(cfg.outdir/'C1_C4.csv')
+        incomplete = int((coverage.status!='tested').sum())
+        print(f'C1-C4 checks not confirmed: {incomplete}; see C1_C4 sheet',flush=True)
     print(f'Saved {cfg.outdir}/SIE4x4.xlsx; missing selected energies: {failed}', flush=True)
-    return int(bool(failed))
+    return int(bool(failed or incomplete))
 
 
 if __name__ == '__main__':
     sys.exit(main())
+

@@ -11,7 +11,9 @@
 set -euo pipefail
 
 # Change this pair only, then: bash job.sh --submit
+# C1-C4 confirmation is enabled below, including automatic neighbor preparation.
 ALPHA=(0.2 0.9)
+NEIGHBOR_STEP="${NEIGHBOR_STEP:-0.1}"
 ALPHA_X="${ALPHA_X:-${ALPHA[0]}}"
 ALPHA_C="${ALPHA_C:-${ALPHA[1]}}"
 for value in "$ALPHA_X" "$ALPHA_C"; do
@@ -31,7 +33,15 @@ for argument in "$@"; do
     esac
 done
 RESULT_ROOT="${RESULT_ROOT:-/data/giahuy/Result/OBDH/SIE_DFT}"
-OUTPUT_DIR="${OUTPUT_DIR:-$RESULT_ROOT/scaling_v2/recalc_obdh_(${ALPHA_X},${ALPHA_C})}"
+BASE_OUTPUT_DIR="$RESULT_ROOT/scaling_v2/recalc_obdh_(${ALPHA_X},${ALPHA_C})"
+if [[ -z "${OUTPUT_DIR+x}" ]]; then
+    OUTPUT_DIR="$BASE_OUTPUT_DIR"
+    # Keep earlier v2 data that did not run all checks; do not mix/relabel it.
+    if [[ -f "$BASE_OUTPUT_DIR/config.json" ]] && \
+       ! grep -Eq '"confirm_c1_c4"[[:space:]]*:[[:space:]]*true' "$BASE_OUTPUT_DIR/config.json"; then
+        OUTPUT_DIR="${BASE_OUTPUT_DIR}_C1_C4"
+    fi
+fi
 if [[ "${1:-}" == "--submit" ]]; then
     shift
     export ALPHA_X ALPHA_C RESULT_ROOT OUTPUT_DIR
@@ -68,6 +78,10 @@ python -u "$INPUT_FILE" \
     --threads "$OMP_NUM_THREADS" --max-memory "${MAX_MEMORY:-55000}" \
     --alpha "$ALPHA_X" "$ALPHA_C" \
     --methods obdh obdh_1st --ob-init uhf dft \
+    --confirm-c1-c4 --ob-restarts 2 --ob-restart-angle 0.05 \
+    --ob-probe-directions 2 \
+    --neighbor-mode auto --neighbor-root "$RESULT_ROOT/scaling_v2" \
+    --neighbor-step "$NEIGHBOR_STEP" --prepare-neighbor \
     --basis "${BASIS:-aug-cc-pVDZ}" --grid 4 \
     --scf-policy multiguess --scf-cycles 200 --scf-tol 1e-9 --scf-grad-tol 1e-6 \
     --ob-cycles 300 --ob-tol 1e-6 \
@@ -76,5 +90,6 @@ end=$(date +%s)
 runtime=$((end-start))
 printf 'Hoàn tất. Output: %s. Thời gian: %02d:%02d:%02d\n' \
     "$OUTPUT_FILE" $((runtime/3600)) $(((runtime%3600)/60)) $((runtime%60))
+
 
 

@@ -46,6 +46,67 @@ class ReportingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'geometry/basis'):
                 sie.load_neighbors([root],'He2_plus','R_1.0','correct')
 
+    def test_scf_neighbor_alone_does_not_confirm_ob_branch_continuation(self):
+        cfg=argparse.Namespace(methods=['obdh','obdh_1st'],ob_init=['uhf','dft'],
+            systems=['He2_plus'],points=['R_1.0'],alpha=[.9,.6])
+        rows=[dict(stage='scf',source='uhf',guess='neighbor_0',valid=True,neighbor_path='source.npz')]
+        with tempfile.TemporaryDirectory() as d:
+            cfg.outdir=Path(d)
+            sie.report([dict(system='He2_plus',point='R_1.0',candidates=rows,iterations=[])],cfg)
+            checks=pd.read_csv(cfg.outdir/'C1_C4.csv')
+            c2=checks[checks.check=='C2_neighbor_initialization'].iloc[0]
+            self.assertNotEqual(c2.status,'tested')
+
+
+class AutomaticNeighborTests(unittest.TestCase):
+    def config(self, root):
+        path = root/'input.json'
+        path.write_text('{}')
+        return argparse.Namespace(input=path,basis='6-31g',grid=1,alpha=[.9,.6],
+            outdir=root/'recalc_obdh_(0.9,0.6)',neighbor_root=root,neighbor_step=.1,
+            neighbor_dir=[],neighbor_mode='auto',prepare_neighbor=False,
+            systems=['He2_plus'],points=['R_1.0'])
+
+    def ready(self, root, cfg, alpha):
+        directory = root/f'recalc_obdh_({alpha[0]:g},{alpha[1]:g})'
+        (directory/'orbitals').mkdir(parents=True)
+        config = dict(protocol=sie.PROTOCOL,basis=cfg.basis,grid=cfg.grid,alpha=alpha,
+            input_sha256=sie.hashlib.sha256(cfg.input.read_bytes()).hexdigest())
+        (directory/'config.json').write_text(json.dumps(config))
+        (directory/'He2_plus__R_1.0.json').write_text(json.dumps(dict(fingerprint=sie.digest(config))))
+        np.savez(directory/'orbitals/He2_plus__R_1.0__state.npz',coeff=np.eye(2))
+        return directory
+
+    def test_auto_finds_completed_adjacent_without_neighbor_argument(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);cfg=self.config(root)
+            source=self.ready(root,cfg,[.9,.5])
+            sie.configure_neighbors(cfg)
+            self.assertEqual(cfg.neighbor_dir,[source.resolve()])
+            self.assertEqual(cfg.neighbor_selection,'auto_completed_adjacent')
+
+    def test_partial_neighbor_is_not_reported_as_completed(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);cfg=self.config(root)
+            source=self.ready(root,cfg,[.9,.5])
+            (source/'He2_plus__R_1.0.json').unlink()
+            sie.configure_neighbors(cfg)
+            self.assertEqual(cfg.neighbor_dir,[])
+            self.assertEqual(cfg.neighbor_selection,'none_available_C2_not_performed')
+
+    def test_resume_keeps_original_neighbor_snapshot(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);cfg=self.config(root)
+            source=self.ready(root,cfg,[.8,.6])
+            sie.configure_neighbors(cfg)
+            cfg.outdir.mkdir()
+            (cfg.outdir/'config.json').write_text(json.dumps(dict(neighbor_mode='auto',
+                neighbor_selection=cfg.neighbor_selection,neighbor_dir=[str(source.resolve())])))
+            self.ready(root,cfg,[.9,.5])
+            cfg.neighbor_dir=[]
+            sie.configure_neighbors(cfg)
+            self.assertEqual(cfg.neighbor_dir,[source.resolve()])
+
 
 @unittest.skipUnless(importlib.util.find_spec('pycmf'), 'pyCMF is required')
 class FirstIterationTests(unittest.TestCase):
@@ -110,3 +171,4 @@ class FirstIterationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

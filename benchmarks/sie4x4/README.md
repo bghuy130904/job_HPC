@@ -49,7 +49,7 @@ cùng outdir. SIE dùng supermolecule tại R_DL, charge=1, spin=1 như v1.
 
 Workbook tự ghi các sheet `statistics`, `selected`, `convergence`, `errors`,
 `paired_relaxation`, `energy_components`, `frozen_derivatives`, `candidates`,
-`iterations`, `orbital_probes`, `readme`, `config`. Năng lượng thiếu để trống;
+`iterations`, `orbital_probes`, `ob_restarts`, `neighbor_comparison`, `C1_C4`, `readme`, `config`. Năng lượng thiếu để trống;
 MUE_16 chỉ có khi đủ 16 điểm. `paired_relaxation` ghép đúng cùng DFT seed.
 `energy_components` chứa riêng HF exchange, B88 exchange, LYP correlation,
 DFT và OBMP2 correction. Iterations ghi populations, S2, gap, amplitude và
@@ -64,6 +64,36 @@ C5/C6 không được thêm thành bộ benchmark mới trong thay đổi này.
 Chi tiết so sánh phiên bản nằm trong repo Result:
 `OBDH/SIE_DFT/SCALING_V1_V2.md`. Các kết quả nhỏ trong kiểm chứng không phải
 MUE benchmark và không được đưa vào repo Result như kết quả scaling_v2.
+
+## Job mặc định kiểm tra C1–C4
+
+Job OBDH hiện bật rõ `--confirm-c1-c4`, không chỉ chạy lại năng lượng:
+
+| Mục | Thực hiện trong job |
+|---|---|
+| C1 | Hai nhiễu occupied/virtual ưu tiên chuyển charge/spin giữa fragment; chạy lại OBDH đến hội tụ tại cùng Alpha; so năng lượng và mật độ. Giữ thêm các energy-direction probes riêng. |
+| C2 | Tự tìm ô lân cận đã hoàn tất (bước Alpha mặc định 0.1). Nếu chưa có, tự tính một ô phụ trong `neighbor_reference/` rồi dùng orbital đó. Không cần tự truyền neighbor-dir. |
+| C3 | Tính sai số có dấu ở từng R, ghi rõ nghiệm/mốc R_DL; không dùng 0 thay kết quả thiếu. |
+| C4 | DFT hội tụ -> OBMP2 một lần; phân rã năng lượng và so với OBDH hội tụ từ cùng seed DFT. |
+
+Chỉ sửa `ALPHA=(...)` rồi `bash .../job.sh --submit`. `NEIGHBOR_STEP`
+trong job mặc định 0.1. Ô phụ có `run_role=neighbor_reference`, tắt C1/C2 để
+tránh đệ quy, và không được coi là một kết quả grid đã xác nhận C1–C4.
+Nếu thư mục Alpha đã có run v2 cũ không bật đủ C1–C4, job tự dùng hậu tố
+`_C1_C4` để không trộn dữ liệu.
+Các orbital nguồn được cố định khi bắt đầu run; resume không tự đổi sang ô
+nguồn vừa xuất hiện sau đó. Cấu hình/code/neighbor khác cần outdir mới.
+
+Sheet `C1_C4` ghi từng mục đã được thực hiện hay bị chặn; `tested` chỉ nghĩa
+là đã thực hiện phép kiểm tra. Đọc `ob_restarts` để biết có nghiệm thấp hơn
+hoặc mật độ khác xuất hiện không, và `neighbor_comparison` để so baseline
+với neighbor. Nếu thiếu năng lượng hoặc không làm đủ các mục, job kết thúc
+nonzero và ghi rõ mục chưa xác nhận, không báo đã kiểm chứng đầy đủ.
+
+C1 ở đây là perturb-and-reconverge của phương trình OB; nó không phải full
+Hessian hay chứng nhận cực tiểu năng lượng. Nếu chỉ gọi Python cho một phép
+thử riêng, có thể tắt phần tự chuẩn bị neighbor hoặc restarts bằng CLI;
+launcher kiểm chứng C1–C4 không tắt các mục này mặc định.
 
 ## Kiểm chứng implementation
 
@@ -232,5 +262,6 @@ basis, không phải full SIE4x4 MUE. Có thể chạy kiểm tra vật lý warm
 ```bash
 python benchmarks/sie4x4/tests/check_orbital_warm.py
 ```
+
 
 
