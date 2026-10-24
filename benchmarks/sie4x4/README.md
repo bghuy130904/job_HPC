@@ -1,3 +1,83 @@
+# SIE4x4 scaling_v2
+
+Driver mới: `methods/obdh/calc_OBDH_scaling.py` -> `tools/run_sie_scaling.py`.
+`obdh_1st` được định nghĩa là **hội tụ DFT base trước, rồi đánh giá một lần
+OBMP2 correlation trên orbital/occupation/orbital energy DFT đó**:
+
+```text
+E_obdh_1st = E_DFT_SCF + alpha_c * E_corr_OBMP2[state_DFT]
+```
+
+Nó khác OBDH từ UHF chạy `--ob-cycles 1`. One-shot có
+`status=evaluated_one_shot`, `evaluation_complete=True`, `ob_converged=False`;
+không dùng `--accept-unconverged`. DFT và OB dùng cùng OB auxiliary basis để
+DFT term được hội tụ đúng với operator được đánh giá sau đó. UHF init giữ
+`--scf-aux` cũ. Trong v2, source `uhf` và `dft` được báo cáo riêng.
+
+Sửa `ALPHA=(0.9 0.6)` trong job rồi submit:
+
+```bash
+bash benchmarks/sie4x4/jobs/obdh/job.sh --submit
+```
+
+Giữ partition/CPU/RAM, module, venv và đường dẫn HPC cũ. Job tự cập nhật
+Alpha trong input CLI, job name, tên log và thư mục
+`/data/giahuy/Result/OBDH/SIE_DFT/scaling_v2/recalc_obdh_(0.9,0.6)`.
+Không cần tạo input geometry riêng cho từng Alpha. Có thể đặt `ALPHA_X`,
+`ALPHA_C`, `OUTPUT_DIR`, `CODE_ROOT`, `INPUT_JSON`, `BASIS` qua environment.
+
+```bash
+# Thử nhanh định nghĩa mới (standard chỉ dành cho phép thử này):
+python benchmarks/sie4x4/methods/obdh/calc_OBDH_scaling.py \
+  --outdir /tmp/sie_first_check --alpha 0.9 0.6 --basis 6-31g --grid 1 \
+  --systems He2_plus --points R_1.0 dissociation_limit \
+  --methods obdh obdh_1st --scf-policy standard --threads 1
+
+# C2: thử orbital của ô Alpha đã chạy xong, gồm direct OB continuation:
+ALPHA_X=0.9 ALPHA_C=0.7 bash benchmarks/sie4x4/jobs/obdh/job.sh --submit \
+  --neighbor-dir '/data/giahuy/Result/OBDH/SIE_DFT/scaling_v2/recalc_obdh_(0.9,0.6)'
+```
+
+`config.json`, log/JSON từng điểm và `orbitals/*.npz` lưu nguồn dữ liệu cho
+resume/continuation. Không trộn kết quả khác config/input/code/neighbor vào
+cùng outdir. SIE dùng supermolecule tại R_DL, charge=1, spin=1 như v1.
+
+Workbook tự ghi các sheet `statistics`, `selected`, `convergence`, `errors`,
+`paired_relaxation`, `energy_components`, `frozen_derivatives`, `candidates`,
+`iterations`, `orbital_probes`, `readme`, `config`. Năng lượng thiếu để trống;
+MUE_16 chỉ có khi đủ 16 điểm. `paired_relaxation` ghép đúng cùng DFT seed.
+`energy_components` chứa riêng HF exchange, B88 exchange, LYP correlation,
+DFT và OBMP2 correction. Iterations ghi populations, S2, gap, amplitude và
+mẫu số ở amplitude khác không. `diis_residual_rms` không phải density RMS.
+
+Mặc định có hai energy-direction probes/OB candidate hội tụ, giữ orbital
+energies/occupations và tính lại amplitudes/density energy. Đây **không phải
+full OB Hessian hoặc chứng nhận stability**; SCF stability và OB convergence
+được ghi tách biệt. Dùng `--ob-probe-directions 0` để bỏ các probe bổ sung.
+C5/C6 không được thêm thành bộ benchmark mới trong thay đổi này.
+
+Chi tiết so sánh phiên bản nằm trong repo Result:
+`OBDH/SIE_DFT/SCALING_V1_V2.md`. Các kết quả nhỏ trong kiểm chứng không phải
+MUE benchmark và không được đưa vào repo Result như kết quả scaling_v2.
+
+## Kiểm chứng implementation
+
+- Bốn test trong `tests/test_scaling_v2.py`: định nghĩa DFT + một OBMP2
+  correction, giữ orbital/epsilon (cho phép đổi thứ tự cột), phân biệt với
+  UHF-init một vòng, reference thấp nhất thất bại không bị thay bằng reference
+  cao hơn, và kiểm tra geometry của neighbor.
+- Đã chạy He2+ tại R0/R_DL với 6-31G/grid 1, gồm multiguess, full OBDH hai
+  source, one-shot, phân rã năng lượng và directional probes.
+- Đã chạy one-shot cho (H2O)2+ tại R0/R_DL với 6-31G/grid 1; direct neighbor
+  continuation cho He2+ ở Alpha lân cận; và He2+ tại R0 với aug-cc-pVDZ/grid 4.
+- Workbook, trạng thái thiếu dữ liệu, partial MUE, resume và tên job tự sinh
+  đã được kiểm tra. Kiểm tra submit dùng sbatch giả lập; không submit job HPC.
+
+Đây là kiểm chứng luồng tính/ghi dữ liệu, không phải kết quả SIE4x4 đầy đủ
+hoặc bằng chứng tái hiện số liệu của paper.
+
+## Quy trình scaling_v1 (giữ để đối chiếu)
+
 # SIE4x4: guesses, nghiệm và benchmark
 
 `tools/run_sie.py` là protocol chung. `methods/dft/calc_DFT.py` và
@@ -64,8 +144,8 @@ f = |sA−sB|/(|sA|+|sB|): f≥0.8 → loc; f≤0.2 → deloc; còn lại mixed.
 ⟨S²⟩ được tính cho determinant từ orbitals cuối, không là correlated spin observable.
 Luôn đọc các population liên tục cùng energy thay vì chỉ đọc nhãn loc/deloc.
 
-Mặc định α=(0.53,0.39) được **giữ nguyên** từ benchmark cũ. `dh_matched` dùng
-E_KS + 0.39 E_MP2 trên KS orbitals, làm đối chứng cùng hệ số. Không gọi bộ này
+Mặc định α=(0.5,0.4) được **giữ nguyên** từ benchmark cũ. `dh_matched` dùng
+E_KS + 0.4 E_MP2 trên KS orbitals, làm đối chứng cùng hệ số. Không gọi bộ này
 B2PLYP chuẩn. B2PLYP có (0.53,0.27): có thể chạy một outdir riêng với
 `--alpha 0.53 0.27`. Đây là biến thể nghiên cứu bổ sung, không tự ý đổi định nghĩa OBDH.
 
@@ -105,10 +185,10 @@ giữ nguyên nội dung như trước khi tổ chức thư mục; chưa migrate
 
 ```bash
 sbatch benchmarks/sie4x4/jobs/dft/job.sh
-sbatch benchmarks/sie4x4/jobs/obdh/job.sh
+bash benchmarks/sie4x4/jobs/obdh/job.sh --submit
 ```
 
-Truyền lựa chọn qua CLI, ví dụ `sbatch benchmarks/sie4x4/jobs/obdh/job.sh
+Truyền lựa chọn qua CLI, ví dụ `bash benchmarks/sie4x4/jobs/obdh/job.sh --submit
 --basis cc-pVDZ --grid 3 --points R_1.0 dissociation_limit`.
 `--methods`, `--systems`, `--points`, `--alpha` và các tolerance được lưu trong config.
 Thread count giữ theo cấu hình 10 threads trong launcher gốc. Bản DF mặc định dùng
@@ -147,4 +227,5 @@ basis, không phải full SIE4x4 MUE. Có thể chạy kiểm tra vật lý warm
 ```bash
 python benchmarks/sie4x4/tests/check_orbital_warm.py
 ```
+
 
