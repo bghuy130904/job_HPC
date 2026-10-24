@@ -7,6 +7,7 @@ Organized from commit 822fd36915ff16abd392b9af3e16c99b1986dda9. The initial layo
 | Benchmark | Method folders | Inputs and reference data |
 | --- | --- | --- |
 | dipole_152 | ccsd, dft, obdh | inputs/sp_inputs.json, inputs/nsp_inputs.json; references/ref_sp.json and ref_nsp.json |
+| dipole_cccbdb | ccsd, dft, obdh | 10 NIST experimental geometries in inputs/cccbdb_inputs.json; references/ref_cccbdb.json with source details in cccbdb_sources.json; reuses dipole_152 engine |
 | dipole_dissociation | ccsd, dft, obdh | inputs/dissociation_inputs.json; references/dissociation_reference.json |
 | sie4x4 | dft, obdh; ORCA scripts under tools and jobs/orca | inputs/input.json; ORCA inputs generated per run |
 | mipc | mp2, obmp2, obdh, b2plyp, pbe0 | Geometries remain in the existing method scripts; extracting them is a separate code change |

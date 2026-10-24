@@ -1,0 +1,131 @@
+{
+  "dataset": "CCCBDB experimental geometry and dipole subset, 10 neutral singlets",
+  "accessed": "2026-10-24",
+  "geometry_unit": "Angstrom",
+  "dipole_unit": "Debye",
+  "selection_rule": "Main Electric dipole moment table, state=1/config=1, total magnitude. Do not substitute vibration-specific or excited-state rows.",
+  "geometry_rule": "Copy the published Cartesian table verbatim, at its displayed precision; remove only atom-number suffixes. No optimization or reconstruction from rounded internal coordinates.",
+  "comparison_note": "CCCBDB main-table dipoles mix equilibrium mu_e, vibrational-ground-state mu_0 and unspecified vibrational character. A clamped-nuclei electronic dipole is not automatically the same observable. No vibrational correction is applied.",
+  "molecules": {
+    "HF": {
+      "name": "Hydrogen fluoride",
+      "cas": "7664-39-3",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=7664393",
+      "geometry_reference": "NISTdiatomic",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=7664393&charge=0",
+      "dipole_reference": "NISTDiatomic",
+      "dipole_comment": "MB; mu_0",
+      "dipole_kind": "mu_0"
+    },
+    "HCl": {
+      "name": "Hydrogen chloride",
+      "cas": "7647-01-0",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=7647010",
+      "geometry_reference": "NISTdiatomic",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=7647010&charge=0",
+      "dipole_reference": "NISTDiatomic",
+      "dipole_comment": "MB; mu_e. Vibration-specific v=0 value is 1.109 D; not selected.",
+      "dipole_kind": "mu_e"
+    },
+    "CO": {
+      "name": "Carbon monoxide",
+      "cas": "630-08-0",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=630080",
+      "geometry_reference": "NISTdiatomic",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=630080&charge=0",
+      "dipole_reference": "NSRDS-NBS10",
+      "dipole_comment": "MW; ground singlet state. The 1.375 D row is an excited triplet; not selected.",
+      "dipole_kind": "vibrational_character_unspecified"
+    },
+    "HCN": {
+      "name": "Hydrogen cyanide",
+      "cas": "74-90-8",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=74908",
+      "geometry_reference": "1966Herzberg",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=74908&charge=0",
+      "dipole_reference": "NSRDS-NBS10",
+      "dipole_comment": "MW; mu_0. Separate vibration-specific table lists 2.985 D; not selected.",
+      "dipole_kind": "mu_0"
+    },
+    "H2O": {
+      "name": "Water",
+      "cas": "7732-18-5",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=7732185",
+      "geometry_reference": "1979Hoy/Bun:1",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=7732185&charge=0",
+      "dipole_reference": "1991Sho/Ebe:5875-5882",
+      "dipole_comment": "MW; mu_e. Page also lists mu_0=1.85498 D; not selected.",
+      "dipole_kind": "mu_e"
+    },
+    "NH3": {
+      "name": "Ammonia",
+      "cas": "7664-41-7",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=7664417",
+      "geometry_reference": "1966Herzberg",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=7664417&charge=0",
+      "dipole_reference": "1970Shi:3572-3576",
+      "dipole_comment": "Laser resonance; mu_0; reported uncertainty +/-0.0029 D. Separate 0000 row gives 1.475 D; not selected.",
+      "dipole_kind": "mu_0"
+    },
+    "H2CO": {
+      "name": "Formaldehyde",
+      "cas": "50-00-0",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=50000",
+      "geometry_reference": "Gurvich",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=50000&charge=0",
+      "dipole_reference": "2003The/Cal:8910-8915",
+      "dipole_comment": "MW; mu_0; vibration-specific v=0 row reports +/-0.0005 D.",
+      "dipole_kind": "mu_0"
+    },
+    "H2S": {
+      "name": "Hydrogen sulfide",
+      "cas": "7783-06-4",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=7783064",
+      "geometry_reference": "1975Coo/DeL:237",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=7783064&charge=0",
+      "dipole_reference": "1984Vis/Dyk:231-239",
+      "dipole_comment": "MB; mu_0.",
+      "dipole_kind": "mu_0"
+    },
+    "SO2": {
+      "name": "Sulfur dioxide",
+      "cas": "7446-09-5",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=7446095",
+      "geometry_reference": "1966Herzberg",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=7446095&charge=0",
+      "dipole_reference": "1979Pat/Mar:2740-2747",
+      "dipole_comment": "MW; mu_0. Comment gives mu_e=1.62673 D; not selected.",
+      "dipole_kind": "mu_0"
+    },
+    "OCS": {
+      "name": "Carbonyl sulfide",
+      "cas": "463-58-1",
+      "charge": 0,
+      "spin": 0,
+      "geometry_url": "https://cccbdb.nist.gov/expgeom2x.asp?casno=463581",
+      "geometry_reference": "1966Herzberg",
+      "dipole_url": "https://cccbdb.nist.gov/exp2x.asp?casno=463581&charge=0",
+      "dipole_reference": "NISTtriatomic",
+      "dipole_comment": "MW; mu_0; vibration-specific v=0 row reports +/-0.0002 D.",
+      "dipole_kind": "mu_0"
+    }
+  }
+}
