@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # Change this pair only, then: bash job.sh --submit
-ALPHA=(0.2 0.8)
+ALPHA=(0.2 0.9)
 ALPHA_X="${ALPHA_X:-${ALPHA[0]}}"
 ALPHA_C="${ALPHA_C:-${ALPHA[1]}}"
 for value in "$ALPHA_X" "$ALPHA_C"; do
