@@ -12,7 +12,7 @@ set -euo pipefail
 
 # Change this pair only, then: bash job.sh --submit
 # C1-C4 confirmation is enabled below, including automatic neighbor preparation.
-ALPHA=(0.4 0.7)
+ALPHA=(0.4 0.8)
 NEIGHBOR_STEP="${NEIGHBOR_STEP:-0.1}"
 ALPHA_X="${ALPHA_X:-${ALPHA[0]}}"
 ALPHA_C="${ALPHA_C:-${ALPHA[1]}}"
