@@ -8,7 +8,7 @@
 set -euo pipefail
 CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
 RESULT_ROOT="${RESULT_ROOT:-/data/giahuy/Result/OBDH/SIE_DFT}"
-SCAN_ROOT="${SCAN_ROOT:-$RESULT_ROOT/scaling_v2/fixed_pipeline}"
+SCAN_ROOT="${SCAN_ROOT:-$RESULT_ROOT/scaling_v2}"
 TMP_ROOT="${TMP_ROOT:-/data/giahuy/pyscf_tmp/sie4x4}"
 mkdir -p "$TMP_ROOT" "$SCAN_ROOT/scan_summary"
 SUMMARY_TMP_DIR=$(mktemp -d "$TMP_ROOT/summary.XXXXXXXX")

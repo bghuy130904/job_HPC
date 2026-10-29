@@ -15,7 +15,7 @@ set -euo pipefail
 # ARRAY_SPEC=0-8%2 restricts the scan; default: all 81 pairs, 3 at a time.
 CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
 RESULT_ROOT="${RESULT_ROOT:-/data/giahuy/Result/OBDH/SIE_DFT}"
-SCAN_ROOT="${SCAN_ROOT:-$RESULT_ROOT/scaling_v2/fixed_pipeline}"
+SCAN_ROOT="${SCAN_ROOT:-$RESULT_ROOT/scaling_v2}"
 TMP_ROOT="${TMP_ROOT:-/data/giahuy/pyscf_tmp/sie4x4}"
 ARRAY_SPEC="${ARRAY_SPEC:-0-80%3}"
 NEIGHBOR_STEP="${NEIGHBOR_STEP:-0.1}"

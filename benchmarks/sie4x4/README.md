@@ -21,10 +21,10 @@ ARRAY_SPEC=0-8%2 bash benchmarks/sie4x4/jobs/obdh/job.sh --submit
 bash benchmarks/sie4x4/jobs/obdh/job.sh --merge
 ```
 
-Kết quả mới mặc định ở
-`/data/giahuy/Result/OBDH/SIE_DFT/scaling_v2/fixed_pipeline/`.
+Khi chạy job, thư mục kết quả được tạo bằng `mkdir -p` tại
+`/data/giahuy/Result/OBDH/SIE_DFT/scaling_v2/`.
 Từng task dùng `recalc_obdh_(x,c)`; bảng toàn lưới ở `scan_summary/`.
-Dữ liệu v2 cũ nằm ngoài thư mục này và không bị sửa, ghi đè hay đổi nhãn.
+Dữ liệu v2 cũ đã được chuyển đi; lượt chạy này tạo lại `scaling_v2/` để chứa trực tiếp các folder scaling.
 Có thể đổi `SCAN_ROOT`, `RESULT_ROOT`, `CODE_ROOT`, `INPUT_JSON`, `BASIS` bằng environment.
 
 ## Thư mục tạm trên /data, không dùng /scratch của node
