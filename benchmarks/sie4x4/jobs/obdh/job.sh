@@ -18,6 +18,9 @@ CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
 RESULT_ROOT="${RESULT_ROOT:-/data/giahuy/Result/OBDH/SIE_DFT}"
 SCAN_ROOT="${SCAN_ROOT:-$RESULT_ROOT/scaling_v2}"
 TMP_ROOT="${TMP_ROOT:-/data/giahuy/pyscf_tmp/sie4x4}"
+# Each worker owns its HDF5 scratch files; NFS file locking hangs on c3.
+# Export before Python imports so primary and neighbor workers inherit it.
+export HDF5_USE_FILE_LOCKING=FALSE
 ARRAY_SPEC="${ARRAY_SPEC:-0-80%3}"
 NEIGHBOR_STEP="${NEIGHBOR_STEP:-0.1}"
 INPUT_FILE="$CODE_ROOT/benchmarks/sie4x4/methods/obdh/calc_OBDH_scaling.py"
@@ -88,7 +91,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
-printf 'TMPDIR=%s\nPYSCF_TMPDIR=%s\nTemporary filesystem capacity:\n' "$TMPDIR" "$PYSCF_TMPDIR" >> "$OUTPUT_FILE"
+printf 'TMPDIR=%s\nPYSCF_TMPDIR=%s\nHDF5_USE_FILE_LOCKING=%s\nTemporary filesystem capacity:\n' "$TMPDIR" "$PYSCF_TMPDIR" "$HDF5_USE_FILE_LOCKING" >> "$OUTPUT_FILE"
 df -h "$TMPDIR" >> "$OUTPUT_FILE"
 df -i "$TMPDIR" >> "$OUTPUT_FILE"
 export PYTHONUNBUFFERED=1
