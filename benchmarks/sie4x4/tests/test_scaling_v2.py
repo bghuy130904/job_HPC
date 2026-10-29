@@ -19,6 +19,69 @@ import run_sie_v2 as sie
 
 
 class ReportingTests(unittest.TestCase):
+    def test_diagnostic_cannot_rescue_or_replace_primary_baseline(self):
+        rows=[dict(stage='obdh',source='uhf',guess='local',valid=False,result_scope='baseline'),
+              dict(stage='obdh',source='uhf',guess='neighbor',valid=True,energy=-10.,
+                   result_scope='diagnostic',initialization_path='neighbor_obdh')]
+        case=dict(system='He2_plus',point='R_1.0',candidates=rows,iterations=[])
+        cfg=argparse.Namespace(methods=['obdh'],ob_init=['uhf'],systems=['He2_plus'],
+                               points=['R_1.0'],alpha=[.6,.4])
+        with tempfile.TemporaryDirectory() as d:
+            cfg.outdir=Path(d)
+            selected=sie.report([case],cfg)
+            primary=next(r for r in selected if r['method']=='obdh')
+            self.assertFalse(primary['valid'])
+            self.assertIsNone(primary['energy'])
+            diagnostic=pd.read_csv(cfg.outdir/'diagnostic_best.csv').iloc[0]
+            self.assertTrue(diagnostic.valid)
+            self.assertFalse(diagnostic.replaces_selected)
+            self.assertEqual(diagnostic.energy,-10.)
+
+    def test_same_start_pair_reports_type_change_without_certifying_branch(self):
+        rows=[dict(stage='dft_base',source='dft',guess='a',energy=-5.,valid=True),
+              dict(stage='obdh_1st',source='dft',guess='a',energy=-5.1,valid=True,
+                   E_DFT_SCF_Ha=-5.,E_DFT_Ha=-5.,E_corr_scaled_Ha=-.1,label='loc',initial_orbital_id='same'),
+              dict(stage='obdh',source='dft',guess='a',energy=-5.2,valid=True,
+                   E_DFT_Ha=-4.9,E_corr_scaled_Ha=-.3,label='deloc',initial_orbital_id='same')]
+        cfg=argparse.Namespace(methods=['obdh','obdh_1st'],ob_init=['dft'],systems=['He2_plus'],
+            points=['R_1.0'],alpha=[.6,.4])
+        with tempfile.TemporaryDirectory() as d:
+            cfg.outdir=Path(d)
+            sie.report([dict(system='He2_plus',point='R_1.0',candidates=rows,iterations=[])],cfg)
+            pair=pd.read_csv(cfg.outdir/'paired_relaxation.csv').iloc[0]
+            self.assertTrue(pair.paired_valid)
+            self.assertTrue(pair.same_initial_orbitals)
+            self.assertTrue(pair.label_changed)
+            self.assertFalse(pair.same_final_branch_certified)
+            self.assertEqual(pair.interpretation,'self_consistency_with_type_change')
+            checks=pd.read_csv(cfg.outdir/'C1_C4.csv')
+            self.assertFalse(checks.pdf_complete.any())
+
+    def test_equal_guess_names_with_different_orbital_ids_are_not_a_pair(self):
+        rows=[dict(stage='dft_base',source='dft',guess='a',energy=-5.,valid=True),
+              dict(stage='obdh_1st',source='dft',guess='a',energy=-5.1,valid=True,
+                   E_DFT_SCF_Ha=-5.,label='loc',initial_orbital_id='one'),
+              dict(stage='obdh',source='dft',guess='a',energy=-5.2,valid=True,
+                   label='loc',initial_orbital_id='different')]
+        cfg=argparse.Namespace(methods=['obdh','obdh_1st'],ob_init=['dft'],systems=['He2_plus'],
+            points=['R_1.0'],alpha=[.6,.4])
+        with tempfile.TemporaryDirectory() as d:
+            cfg.outdir=Path(d)
+            sie.report([dict(system='He2_plus',point='R_1.0',candidates=rows,iterations=[])],cfg)
+            pair=pd.read_csv(cfg.outdir/'paired_relaxation.csv').iloc[0]
+            self.assertFalse(pair.paired_valid)
+            self.assertFalse(pair.same_initial_orbitals)
+
+    def test_neighbor_import_does_not_propagate_candidate_history(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);(root/'orbitals').mkdir()
+            for guess,role in [('selected','selected_baseline_obdh'),('inherited','candidate')]:
+                np.savez(root/f'orbitals/He2_plus__R_1.0__{guess}.npz',coeff=np.eye(2),
+                    occ=np.ones(2),epsilon=np.zeros(2),metadata=json.dumps(dict(geometry='ok',export_role=role)))
+            result=sie.load_neighbors([root],'He2_plus','R_1.0','ok')
+            self.assertEqual(len(result),1)
+            self.assertIn('selected.npz',result[0]['path'])
+
     def test_missing_lowest_dft_evaluation_is_not_replaced_by_higher_reference(self):
         rows = [dict(stage='dft_base',source='dft',guess=g,energy=e,valid=True)
                 for g,e in [('low',-5.),('high',-4.9)]]
@@ -70,7 +133,8 @@ class AutomaticNeighborTests(unittest.TestCase):
     def ready(self, root, cfg, alpha):
         directory = root/f'recalc_obdh_({alpha[0]:g},{alpha[1]:g})'
         (directory/'orbitals').mkdir(parents=True)
-        config = dict(protocol=sie.PROTOCOL,basis=cfg.basis,grid=cfg.grid,alpha=alpha,
+        config = dict(protocol=sie.PROTOCOL,pipeline_layout=sie.LAYOUT,basis=cfg.basis,grid=cfg.grid,alpha=alpha,
+            driver_sha256=sie.hashlib.sha256(Path(sie.__file__).read_bytes()+Path(sie.base.__file__).read_bytes()).hexdigest(),
             input_sha256=sie.hashlib.sha256(cfg.input.read_bytes()).hexdigest())
         (directory/'config.json').write_text(json.dumps(config))
         (directory/'He2_plus__R_1.0.json').write_text(json.dumps(dict(fingerprint=sie.digest(config))))
@@ -106,6 +170,14 @@ class AutomaticNeighborTests(unittest.TestCase):
             cfg.neighbor_dir=[]
             sie.configure_neighbors(cfg)
             self.assertEqual(cfg.neighbor_dir,[source.resolve()])
+
+    def test_array_order_does_not_select_a_different_adjacent_pair(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);cfg=self.config(root)
+            self.ready(root,cfg,[.8,.6])
+            sie.configure_neighbors(cfg)
+            self.assertEqual(cfg.neighbor_dir,[])
+            self.assertEqual(cfg.neighbor_selection,'none_available_C2_not_performed')
 
 
 @unittest.skipUnless(importlib.util.find_spec('pycmf'), 'pyCMF is required')

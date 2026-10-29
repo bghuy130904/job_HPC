@@ -1,115 +1,161 @@
-# SIE4x4 v1 và v2
+# SIE4x4 v2: phép tính độc lập, kiểm tra neighbor và báo cáo rõ nguồn
 
-Hai driver được đặt tên rõ theo phiên bản: `tools/run_sie_v1.py` và
-`tools/run_sie_v2.py`. Mỗi lần gọi vẫn nhận một cặp `--alpha`.
-`tools/run_sie.py` chỉ là file chuyển tiếp cho import/lệnh cũ; không chứa
-bản sao pipeline. Các file ORCA được giữ nguyên.
+## Chạy một lần cho toàn bộ 81 cặp Alpha
 
-Driver mới: `methods/obdh/calc_OBDH_scaling.py` -> `tools/run_sie_v2.py`.
-`obdh_1st` được định nghĩa là **hội tụ DFT base trước, rồi đánh giá một lần
-OBMP2 correlation trên orbital/occupation/orbital energy DFT đó**:
-
-```text
-E_obdh_1st = E_DFT_SCF + alpha_c * E_corr_OBMP2[state_DFT]
-```
-
-Nó khác OBDH từ UHF chạy `--ob-cycles 1`. One-shot có
-`status=evaluated_one_shot`, `evaluation_complete=True`, `ob_converged=False`;
-không dùng `--accept-unconverged`. DFT và OB dùng cùng OB auxiliary basis để
-DFT term được hội tụ đúng với operator được đánh giá sau đó. UHF init giữ
-`--scf-aux` cũ. Trong v2, source `uhf` và `dft` được báo cáo riêng.
-
-Sửa `ALPHA=(0.9 0.6)` trong job rồi submit:
+Từ root repo, dùng nhánh `workspace/benchmark-layout`:
 
 ```bash
 bash benchmarks/sie4x4/jobs/obdh/job.sh --submit
 ```
 
-Giữ partition/CPU/RAM, module, venv và đường dẫn HPC cũ. Job tự cập nhật
-Alpha trong input CLI, job name, tên log và thư mục
-`/data/giahuy/Result/OBDH/SIE_DFT/scaling_v2/recalc_obdh_(0.9,0.6)`.
-Không cần tạo input geometry riêng cho từng Alpha. Có thể đặt `ALPHA_X`,
-`ALPHA_C`, `OUTPUT_DIR`, `CODE_ROOT`, `INPUT_JSON`, `BASIS` qua environment.
+Không điền từng `ALPHA=(...)` nữa. Slurm array mặc định `0-80%3`: tối đa
+ba task chạy đồng thời, một task tính cả bốn hệ và năm hình học tại một Alpha.
+Thứ tự: task 0=(0.1,0.1), 8=(0.1,0.9), 9=(0.2,0.1), 80=(0.9,0.9).
+Job tổng hợp tự được submit với dependency `afterany`, nên vẫn báo cáo các
+điểm thiếu khi một số task thất bại; không đổi thiếu dữ liệu thành năng lượng 0.
 
 ```bash
-# Thử nhanh định nghĩa mới (standard chỉ dành cho phép thử này):
-python benchmarks/sie4x4/methods/obdh/calc_OBDH_scaling.py \
-  --outdir /tmp/sie_first_check --alpha 0.9 0.6 --basis 6-31g --grid 1 \
-  --systems He2_plus --points R_1.0 dissociation_limit \
-  --methods obdh obdh_1st --scf-policy standard --threads 1
-
-# C2: thử orbital của ô Alpha đã chạy xong, gồm direct OB continuation:
-ALPHA_X=0.9 ALPHA_C=0.7 bash benchmarks/sie4x4/jobs/obdh/job.sh --submit \
-  --neighbor-dir '/data/giahuy/Result/OBDH/SIE_DFT/scaling_v2/recalc_obdh_(0.9,0.6)'
+# Chỉ chạy hàng alpha_x=0.1, tối đa hai task đồng thời:
+ARRAY_SPEC=0-8%2 bash benchmarks/sie4x4/jobs/obdh/job.sh --submit
+# Tạo lại báo cáo tổng hợp mà không chạy phép tính lượng tử:
+bash benchmarks/sie4x4/jobs/obdh/job.sh --merge
 ```
 
-`config.json`, log/JSON từng điểm và `orbitals/*.npz` lưu nguồn dữ liệu cho
-resume/continuation. Không trộn kết quả khác config/input/code/neighbor vào
-cùng outdir. SIE dùng supermolecule tại R_DL, charge=1, spin=1 như v1.
+Kết quả mới mặc định ở
+`/data/giahuy/Result/OBDH/SIE_DFT/scaling_v2/fixed_pipeline/`.
+Từng task dùng `recalc_obdh_(x,c)`; bảng toàn lưới ở `scan_summary/`.
+Dữ liệu v2 cũ nằm ngoài thư mục này và không bị sửa, ghi đè hay đổi nhãn.
+Có thể đổi `SCAN_ROOT`, `RESULT_ROOT`, `CODE_ROOT`, `INPUT_JSON`, `BASIS` bằng environment.
 
-Workbook tự ghi các sheet `statistics`, `selected`, `convergence`, `errors`,
-`paired_relaxation`, `energy_components`, `frozen_derivatives`, `candidates`,
-`iterations`, `orbital_probes`, `ob_restarts`, `neighbor_comparison`, `C1_C4`, `readme`, `config`. Năng lượng thiếu để trống;
-MUE_16 chỉ có khi đủ 16 điểm. `paired_relaxation` ghép đúng cùng DFT seed.
-`energy_components` chứa riêng HF exchange, B88 exchange, LYP correlation,
-DFT và OBMP2 correction. Iterations ghi populations, S2, gap, amplitude và
-mẫu số ở amplitude khác không. `diis_residual_rms` không phải density RMS.
+## Thư mục tạm trên /data, không dùng /scratch của node
 
-Mặc định có hai energy-direction probes/OB candidate hội tụ, giữ orbital
-energies/occupations và tính lại amplitudes/density energy. Đây **không phải
-full OB Hessian hoặc chứng nhận stability**; SCF stability và OB convergence
-được ghi tách biệt. Dùng `--ob-probe-directions 0` để bỏ các probe bổ sung.
-C5/C6 không được thêm thành bộ benchmark mới trong thay đổi này.
+Áp dụng cách đặt TMPDIR của `dipole_cccbdb/jobs/ccsd/job.sh`:
+`TMP_ROOT=/data/giahuy/pyscf_tmp/sie4x4`. Cả `TMPDIR` (Python/Excel) và
+`PYSCF_TMPDIR` được đặt trước khi khởi động Python. Mỗi array/task/attempt có
+một thư mục `run.XXXXXXXX` riêng. Log ghi đường dẫn, dung lượng và inode của filesystem.
+Trap dọn đúng thư mục tạm vừa tạo cả khi Python trả lỗi. `KEEP_TMP=1` giữ lại
+thư mục đó để debug. Không dọn thư mục của task khác hoặc kết quả benchmark.
+`TMP_ROOT=/một/ổ/khác` có thể ghi đè vị trí mặc định.
 
-Chi tiết so sánh phiên bản nằm trong repo Result:
-`OBDH/SIE_DFT/SCALING_V1_V2.md`. Các kết quả nhỏ trong kiểm chứng không phải
-MUE benchmark và không được đưa vào repo Result như kết quả scaling_v2.
+## Ba đường tính có ý nghĩa khác nhau
 
-## Job mặc định kiểm tra C1–C4
+1. **Kết quả chính từ UHF:** hội tụ SCF UHF tại hình học hiện tại, thử các guess
+   hiện tại, loại density trùng, rồi chạy OBDH từ từng nghiệm SCF hợp lệ.
+2. **Kết quả chính từ DFT:** hội tụ DFT tại đúng Alpha hiện tại với
+   `ax*HF + (1-ax)*B88, (1-ac)*LYP`. Từ cùng một bộ orbital/occupation/orbital
+   energies, chạy hai nhánh: OBMP2 một lần và OBDH đến hội tụ.
+3. **Kiểm tra neighbor:** lấy orbital OBDH độc lập đã hội tụ tại Alpha lân cận,
+   đưa thẳng vào OBDH với Alpha hiện tại. Không hội tụ lại SCF ở đường này.
+   `source` chỉ là lịch sử UHF/DFT của orbital; đường tính thực là `neighbor_obdh`.
 
-Job OBDH hiện bật rõ `--confirm-c1-c4`, không chỉ chạy lại năng lượng:
+Neighbor và restart **không được thay thế kết quả chính** trong `selected`,
+`errors` hoặc `statistics`. Nếu chỉ neighbor hội tụ, kết quả chính vẫn để trống.
+Năng lượng thấp nhất tìm được khi kể cả các phép kiểm tra nằm ở
+`diagnostic_best`, với đường khởi tạo được ghi riêng.
 
-| Mục | Thực hiện trong job |
+Không sửa toán tử, DIIS, điều kiện hội tụ hay source pyCMF. UHF carrier của
+orbital DFT chỉ thay cách đánh giá các toán tử HF, **không chạy lại HF SCF**.
+Phần DFT được tính tại Alpha mục tiêu trong mọi iteration OBDH.
+DFT reference và DFT term bên trong OBDH dùng cùng OB auxiliary basis như
+định nghĩa v2 trước đây; không chuyển lại auxiliary basis để ép trùng số v1.
+
+## Định nghĩa một lần và cách ghép cặp
+
+`obdh_1st` là **DFT đã hội tụ + một lần đánh giá correction OBMP2**, không phải
+iteration đầu của OBDH bắt đầu từ UHF:
+
+```text
+E_first = E_DFT_SCF + alpha_c * E_corr_OBMP2[trạng thái DFT hội tụ]
+```
+
+Nếu DFT tìm được hai nghiệm A/B, có các cặp first-A/full-A và first-B/full-B.
+`initial_orbital_id` băm cả coefficients, occupations và orbital energies để
+kiểm tra đúng cùng trạng thái ban đầu. `paired_valid` đòi hỏi hai lượt hợp lệ
+và mã orbital ban đầu giống nhau. `label_changed` báo loc/deloc/mixed thay đổi.
+Cùng nhãn **không chứng nhận cùng nhánh**; `same_final_branch_certified=False`.
+Không loại cặp đổi nhãn âm thầm: chúng đo tác động tự nhất quán kèm đổi kiểu nghiệm.
+
+`obdh_1st` trong selected dùng nghiệm DFT có năng lượng **DFT** thấp nhất,
+không chọn theo năng lượng sau correction. OBDH chính chọn năng lượng thấp
+nhất trong các lượt từ SCF độc lập, nên hai dòng selected không nhất thiết
+được ghép cùng orbital. Dùng `paired_relaxation`, không trừ tùy ý hai dòng
+selected. Bảng tổng hợp `paired_errors` chọn đúng cặp của DFT reference đã
+chọn tại từng R/R_DL rồi mới tính năng lượng phân ly và sai số.
+`paired_statistics` báo MUE của hai nhánh từ đúng các reference này, chỉ khi
+đủ 16 phản ứng. Không thay nó bằng MUE của OBDH được chọn độc lập.
+
+## Neighbor trong array: xác định trước và không truyền lịch sử vô hạn
+
+Mỗi task chọn trước một Alpha kề: giảm alpha_c 0.1 nếu còn trong lưới, nếu
+không thì giảm alpha_x, rồi tăng alpha_c/alpha_x. Không chọn nguồn dựa vào
+Alpha nào tình cờ chạy xong trước. Nếu nguồn đúng này chưa sẵn sàng, task tự
+tính một baseline hỗ trợ trong `neighbor_reference/`, tắt neighbor/restart/probe
+để không đệ quy. Nguồn hỗ trợ thất bại không ngăn baseline hiện tại được chạy.
+
+Chỉ export/import **nghiệm OBDH baseline được chọn** của mỗi nguồn, mỗi hình học.
+Không nhập toàn bộ orbital neighbor/restart đã tích lũy. Tối đa một OB reference
+cho mỗi nguồn từ một thư mục neighbor. Không dùng neighbor làm SCF guess của
+baseline; đó là nguyên tắc giữ phép tính chính độc lập với lưới và thứ tự array.
+Nghiệm từ neighbor dùng cùng hình học, basis, charge/spin; cấu hình toán tử,
+ngưỡng và phiên bản driver cũng được đối chiếu trước khi tự tái sử dụng.
+
+## Đọc log và Excel
+
+Log tổng mỗi task: `sie4x4_ax_x_ac_c.txt`; log đầy đủ từng hệ/R:
+`SYSTEM__POINT.log`. Mỗi block có CURRENT TARGET, CALCULATION ROLE,
+INITIALIZATION PATH, mã orbital ban đầu, định nghĩa năng lượng, điều kiện
+chạy và REPORTED RESULT. Raw energy của pure OBMP2 bên trong one-shot không
+phải năng lượng one-shot được báo cáo; log in phép ghép DFT + scaled correction.
+Probe năng lượng giữ orbital energies cố định được ghi riêng, không trộn
+vào các iteration OBDH hội tụ. `dRMS` là DIIS residual, không phải density RMS.
+
+| Sheet | Đọc để biết gì? |
 |---|---|
-| C1 | Hai nhiễu occupied/virtual ưu tiên chuyển charge/spin giữa fragment; chạy lại OBDH đến hội tụ tại cùng Alpha; so năng lượng và mật độ. Giữ thêm các energy-direction probes riêng. |
-| C2 | Tự tìm ô lân cận đã hoàn tất (bước Alpha mặc định 0.1). Nếu chưa có, tự tính một ô phụ trong `neighbor_reference/` rồi dùng orbital đó. Không cần tự truyền neighbor-dir. |
-| C3 | Tính sai số có dấu ở từng R, ghi rõ nghiệm/mốc R_DL; không dùng 0 thay kết quả thiếu. |
-| C4 | DFT hội tụ -> OBMP2 một lần; phân rã năng lượng và so với OBDH hội tụ từ cùng seed DFT. |
+| selected | Năng lượng chính từ SCF hiện tại. Thiếu thì để trống, không cứu bằng neighbor. |
+| diagnostic_best | Năng lượng thấp nhất tìm được khi kể cả neighbor/restart, không dùng cho MUE chính. |
+| statistics / errors | MUE đủ 16 điểm / sai số có dấu từng hệ và R. |
+| branch_map | Nhãn, điện tích/spin từng fragment, determinant S2 và đường khởi tạo của kết quả chính. |
+| candidates | Toàn bộ lượt SCF/OB, trạng thái và lỗi; không chỉ các nghiệm được chọn. |
+| paired_relaxation | So first/full từ cùng orbital DFT; ghi đổi loại nghiệm và giới hạn diễn giải. |
+| energy_components / frozen_derivatives | Các thành phần năng lượng và Dx/Dc tại trạng thái được xét. |
+| neighbor_comparison / ob_restarts | Đối chiếu neighbor với baseline / nhiễu baseline rồi hội tụ lại. |
+| C1_C4 | Độ đầy đủ của phép tính và phần yêu cầu khoa học còn thiếu. |
+| readme / config | Định nghĩa cột, đơn vị, các điều kiện và hash dùng để kiểm chứng. |
 
-Chỉ sửa `ALPHA=(...)` rồi `bash .../job.sh --submit`. `NEIGHBOR_STEP`
-trong job mặc định 0.1. Ô phụ có `run_role=neighbor_reference`, tắt C1/C2 để
-tránh đệ quy, và không được coi là một kết quả grid đã xác nhận C1–C4.
-Nếu thư mục Alpha đã có run v2 cũ không bật đủ C1–C4, job tự dùng hậu tố
-`_C1_C4` để không trộn dữ liệu.
-Các orbital nguồn được cố định khi bắt đầu run; resume không tự đổi sang ô
-nguồn vừa xuất hiện sau đó. Cấu hình/code/neighbor khác cần outdir mới.
+## C1-C4: không đồng nhất chạy xong với chứng nhận khoa học
 
-Sheet `C1_C4` ghi từng mục đã được thực hiện hay bị chặn; `tested` chỉ nghĩa
-là đã thực hiện phép kiểm tra. Đọc `ob_restarts` để biết có nghiệm thấp hơn
-hoặc mật độ khác xuất hiện không, và `neighbor_comparison` để so baseline
-với neighbor. Nếu thiếu năng lượng hoặc không làm đủ các mục, job kết thúc
-nonzero và ghi rõ mục chưa xác nhận, không báo đã kiểm chứng đầy đủ.
+- C1: populations/type được ghi; restart thử nghiệm baseline; **chưa có full OB
+  stability analysis**. Probe không thay thế Hessian của năng lượng.
+- C2: localized SCF guesses thuộc baseline; direct neighbor là phép kiểm tra
+  riêng. Giữ cả hai kết quả. Không diễn giải nhãn nguồn neighbor là fresh SCF.
+- C3: `scan_summary/signed_errors_ax_0.7.png` và `...0.9.png` vẽ sai số có dấu
+  cho bốn hệ tại bốn R. Đường nối ngắt khi thiếu dữ liệu hoặc đổi nhãn tại R/R_DL.
+  Dự đoán dấu của PDF là giả thuyết để kiểm tra, không phải tiêu chí loại số liệu.
+- C4: `slope_comparison` đối chiếu Dx/Dc tại (0.5,0.4) với central finite
+  differences từ Alpha kề; đánh dấu stencil đổi nhãn hoặc thiếu dữ liệu.
+  Đây không phải đồng nhất thức đạo hàm tự hợp; cùng nhãn không chứng nhận cùng nhánh.
 
-C1 ở đây là perturb-and-reconverge của phương trình OB; nó không phải full
-Hessian hay chứng nhận cực tiểu năng lượng. Nếu chỉ gọi Python cho một phép
-thử riêng, có thể tắt phần tự chuẩn bị neighbor hoặc restarts bằng CLI;
-launcher kiểm chứng C1–C4 không tắt các mục này mặc định.
+`execution_complete` chỉ nói phép kiểm tra khả dụng đã chạy được.
+`pdf_complete=False` không bị đổi thành True chỉ vì có số: stability OB và
+phân tích khoa học về nhánh còn thiếu. `--confirm-c1-c4` yêu cầu dữ liệu cho
+các phép kiểm tra khả dụng; exit nonzero khi baseline/diagnostic execution thiếu,
+không khẳng định hoàn thành toàn bộ PDF. Job tổng hợp vẫn chạy sau các task lỗi.
 
-## Kiểm chứng implementation
+## Resume và kiểm chứng
 
-- Bốn test trong `tests/test_scaling_v2.py`: định nghĩa DFT + một OBMP2
-  correction, giữ orbital/epsilon (cho phép đổi thứ tự cột), phân biệt với
-  UHF-init một vòng, reference thấp nhất thất bại không bị thay bằng reference
-  cao hơn, và kiểm tra geometry của neighbor.
-- Đã chạy He2+ tại R0/R_DL với 6-31G/grid 1, gồm multiguess, full OBDH hai
-  source, one-shot, phân rã năng lượng và directional probes.
-- Đã chạy one-shot cho (H2O)2+ tại R0/R_DL với 6-31G/grid 1; direct neighbor
-  continuation cho He2+ ở Alpha lân cận; và He2+ tại R0 với aug-cc-pVDZ/grid 4.
-- Workbook, trạng thái thiếu dữ liệu, partial MUE, resume và tên job tự sinh
-  đã được kiểm tra. Kiểm tra submit dùng sbatch giả lập; không submit job HPC.
+Resume chỉ nhận đúng config/input/code/neighbor snapshot. Đổi code/cấu hình
+phải chọn SCAN_ROOT mới. Với cùng snapshot, `--retry-incomplete` chạy lại các
+case thiếu kết quả chính; case chính đã hoàn tất được tái sử dụng. JSON giữ
+lỗi tài nguyên riêng; thiếu dữ liệu không tự động được gọi là không hội tụ số học.
 
-Đây là kiểm chứng luồng tính/ghi dữ liệu, không phải kết quả SIE4x4 đầy đủ
-hoặc bằng chứng tái hiện số liệu của paper.
+```bash
+python -m unittest discover -s benchmarks/sie4x4/tests -p test_scaling_v2.py -v
+python -m unittest discover -s benchmarks/sie4x4/tests -p test_scaling_v2_summary.py -v
+python -m unittest discover -s benchmarks/sie4x4/tests -p test_scaling_jobs.py -v
+```
+
+Các phép thử nhỏ là kiểm chứng implementation, không phải kết quả scaling HPC
+và không được đưa vào Result như dữ liệu benchmark.
 
 ## Quy trình scaling_v1 (giữ để đối chiếu)
 
