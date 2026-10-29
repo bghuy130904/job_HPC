@@ -5,9 +5,10 @@
 #SBATCH --partition=Bigmem
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
+#SBATCH --cpus-per-task=12
 #SBATCH --threads-per-core=1
-#SBATCH --mem-per-cpu=6000
+#SBATCH --mem=60000
+#SBATCH --array=0-80%4
 set -euo pipefail
 
 # Submit once: bash job.sh --submit
