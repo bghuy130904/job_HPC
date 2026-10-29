@@ -34,6 +34,9 @@ done
 CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
 # Keep large CC temporary files on /data; each job/task gets its own directory.
 SCRATCH_ROOT="${SCRATCH_ROOT:-/data/giahuy/pyscf_tmp/cccbdb}"
+# Each worker owns its HDF5 scratch files; NFS file locking hangs on c3.
+# Set before any Python/h5py import, including report-only invocations.
+export HDF5_USE_FILE_LOCKING=FALSE
 INPUT_FILE="$CODE_ROOT/benchmarks/dipole_cccbdb/methods/ccsd/calc_dipmomt_ccsd.py"
 INPUT_JSON="$CODE_ROOT/benchmarks/dipole_cccbdb/inputs/cccbdb_inputs.json"
 REF_JSON="$CODE_ROOT/benchmarks/dipole_cccbdb/references/ref_cccbdb.json"
@@ -77,6 +80,7 @@ export TMPDIR="$JOB_SCRATCH_PATH"
 export PYSCF_TMPDIR="$JOB_SCRATCH_PATH"
 mkdir -p "$TMPDIR"
 printf 'PySCF scratch: %s\n' "$PYSCF_TMPDIR" >> "$OUTPUT_FILE"
+printf 'HDF5 file locking: %s\n' "$HDF5_USE_FILE_LOCKING" >> "$OUTPUT_FILE"
 module load python3.9
 source /home/giahuy/.venv/bin/activate
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
