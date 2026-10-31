@@ -12,8 +12,7 @@
 #SBATCH --array=0-19%3
 set -euo pipefail
 
-# Same launch convention as dipole_152/jobs/obdh/dipole_sp.sh.
-# Change this pair only for an OB scaling run, then: bash job.sh --submit
+# OBDH exchange/correlation coefficients; also used in the output folder name.
 ALPHA=(0.50 0.40)
 ALPHA_X="${ALPHA_X:-${ALPHA[0]}}"
 ALPHA_C="${ALPHA_C:-${ALPHA[1]}}"
@@ -32,6 +31,10 @@ for argument in "$@"; do
     esac
 done
 CODE_ROOT="${CODE_ROOT:-/home/giahuy/Code/job}"
+# Private scratch per job/task on the shared /data filesystem.
+SCRATCH_ROOT="${SCRATCH_ROOT:-/data/giahuy/pyscf_tmp/cccbdb}"
+# NFS HDF5 locking hangs on c3; each worker owns its scratch files.
+export HDF5_USE_FILE_LOCKING=FALSE
 INPUT_FILE="$CODE_ROOT/benchmarks/dipole_cccbdb/methods/obdh/calc_dipmomt_obdh.py"
 INPUT_JSON="$CODE_ROOT/benchmarks/dipole_cccbdb/inputs/cccbdb_inputs.json"
 REF_JSON="$CODE_ROOT/benchmarks/dipole_cccbdb/references/ref_cccbdb.json"
@@ -45,7 +48,7 @@ ARRAY_SPEC="${ARRAY_SPEC:-0-19%3}"
 if [[ "${1:-}" == "--submit" ]]; then
     shift
     # Freeze the pair and destination for this submitted array.
-    export ALPHA_X ALPHA_C RESULT_ROOT OUTPUT_DIR CODE_ROOT
+    export ALPHA_X ALPHA_C RESULT_ROOT OUTPUT_DIR CODE_ROOT SCRATCH_ROOT
     mkdir -p "$RESULT_ROOT/_output" "$RESULT_ROOT/_error"
     exec sbatch --export=ALL --array="$ARRAY_SPEC" --job-name="obdh_cccbdb_${ALPHA_TAG}" \
         --output="$RESULT_ROOT/_output/dipole_%A_%a.out" \
@@ -73,10 +76,11 @@ OUTPUT_FILE="$OUTPUT_DIR/dipole_${SLURM_ARRAY_TASK_ID:-all}.txt"
 printf 'START %s job=%s task=%s host=%s\nCode: %s\nInput: %s\nReference: %s\nOutput: %s\nAlpha: (%s, %s)\nLoading Python environment...\n' \
     "$(date -Is)" "$SLURM_JOB_ID" "${SLURM_ARRAY_TASK_ID:-all}" "$(hostname)" \
     "$INPUT_FILE" "$INPUT_JSON" "$REF_JSON" "$OUTPUT_DIR" "$ALPHA_X" "$ALPHA_C" >> "$OUTPUT_FILE"
-export PYTHONUNBUFFERED=1
-export JOB_SCRATCH_PATH="/scratch/${SLURM_JOB_ID}/${SLURM_ARRAY_TASK_ID:-all}"
-export TMPDIR="$JOB_SCRATCH_PATH"
+export TMPDIR="$SCRATCH_ROOT/${SLURM_JOB_ID}/${SLURM_ARRAY_TASK_ID:-all}"
+export PYSCF_TMPDIR="$TMPDIR"
 mkdir -p "$TMPDIR"
+printf 'PySCF scratch: %s\nHDF5 file locking: %s\n' \
+    "$PYSCF_TMPDIR" "$HDF5_USE_FILE_LOCKING" >> "$OUTPUT_FILE"
 module load python3.9
 source /home/giahuy/.venv/bin/activate
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK

@@ -81,8 +81,8 @@ reference data, calculation entry points, launchers and analysis tools.
 Not every older benchmark has every directory, and some legacy launchers
 still contain older absolute paths. This benchmark follows the current
 dipole_152 job convention: `/home/giahuy/Code/job` for source,
-`/data/giahuy/Result/<family>/...` for output, `/scratch/<job>/<task>` for
-temporary files, `python3.9`, `/home/giahuy/.venv`, explicit thread settings,
+`/data/giahuy/Result/<family>/...` for output,
+`/data/giahuy/pyscf_tmp/cccbdb/<job>/<task>` for temporary files, `python3.9`, `/home/giahuy/.venv`, explicit thread settings,
 Python `-u`, a driver `.txt`, native molecule logs and separate array merge.
 SIE4x4 uses `config.json` and point files; the versioned `.meta.json` contract
 here comes from the dipole engine, not from all benchmarks universally.
@@ -99,7 +99,7 @@ here comes from the dipole engine, not from all benchmarks universally.
 | `methods/ccsd/calc_dipmomt_ccsd.py` | CCSD, CCSD(T) entry point |
 | `tools/cccbdb_driver.py` | Supplies local input/reference defaults and the plain `standard` SCF policy |
 | `jobs/{obdh,dft,ccsd}/job.sh` | Array submission (`0-19%3`) and merge, with the established SLURM format |
-| `jobs/{obdh,dft,ccsd}/merge.sh` | Alias for the same job script's `--merge`, so alpha/output defaults agree |
+| `jobs/{obdh,dft,ccsd}/merge.sh` | Alias for the same job script's `--merge`, keeping output defaults consistent |
 | `tests/test_pipeline.py` | Dataset consistency, dataset CLI defaults and mock submission checks |
 
 Calculation and report implementations are reused directly from
@@ -139,16 +139,19 @@ For OB scaling, edit only `ALPHA=(0.50 0.40)` near the top of the OB `job.sh`.
 The same pair determines `--alpha`, the output folder and submitted job name.
 Environment overrides `ALPHA_X`/`ALPHA_C` are also supported. The submission
 freezes the pair/output in the job environment. Use the same decimal spelling
-when returning to a previous folder. B2PLYP remains fixed at (0.53,0.27);
-choose `--methods dh_matched` for a DFT double hybrid with custom coefficients.
+when returning to a previous folder. B2PLYP remains fixed at (0.53,0.27).
+For a custom DFT double hybrid, pass `--methods dh_matched --alpha a_x a_c`
+and select a new `OUTPUT_DIR`. The CCSD and default DFT jobs have no OB
+scaling variables, tags or alpha log entries; only the OB job uses
+`ALPHA_X`/`ALPHA_C`. CCSD rejects `--alpha` because it is inapplicable.
 
 ```bash
 ALPHA_X=0.60 ALPHA_C=0.30 BASIS=aug-cc-pVTZ \
   bash benchmarks/dipole_cccbdb/jobs/obdh/job.sh --submit --dipole dm
 ```
 
-`CODE_ROOT`, `RESULT_ROOT`, `OUTPUT_DIR`, `BASIS`, `SCF_POLICY`, `DIPOLE_MODE`
-and `MAX_MEMORY` follow the other jobs' environment convention. Use a new
+`CODE_ROOT`, `RESULT_ROOT`, `OUTPUT_DIR`, `BASIS`, `SCF_POLICY`, `DIPOLE_MODE`,
+`SCRATCH_ROOT` and `MAX_MEMORY` follow the other jobs' environment convention. Use a new
 `OUTPUT_DIR` when changing basis, methods, tolerances or estimator settings;
 the engine rejects incompatible checkpoints. Set `OUTPUT_DIR` explicitly
 when merging an older run after changing the alpha pair in the script.
@@ -174,6 +177,11 @@ indices; it does not import old results. `ARRAY_SPEC` applies to the submission
 wrapper; with raw `sbatch`, pass `--array` explicitly.
 To merge an old run, set `OUTPUT_DIR` to its old path; report-only merge
 uses the geometries stored in that run's metadata.
+
+All three launchers set `TMPDIR` and `PYSCF_TMPDIR` to a private job/task
+subdirectory of `SCRATCH_ROOT`. They set `HDF5_USE_FILE_LOCKING=FALSE`
+before Python starts because HDF5 file locking hung on the c3 NFS mount.
+Each worker owns its scratch files.
 
 After the corresponding array finishes:
 
@@ -282,3 +290,14 @@ aug-cc-pCVQZ calculation has not been run or submitted.
 - No new SCF/dipole calculations or HPC submissions were performed for this
   extension. The sandbox lacked a resolver for `aug-cc-pCVQZ`; the production
   basis setting is unchanged and was not validated by this local build check.
+
+### Launcher cleanup
+
+All six shell files (three job/merge pairs) were reviewed. The CC launcher
+contains only SCF/CC/dipole controls; the DFT launcher retains grid and
+PT2 controls for B2PLYP; the OB launcher retains OB controls and alpha.
+The shared engine's argument defaults are unchanged, including historical
+unused metadata fields, so removing redundant flags preserves their values.
+Seven tests cover submission, captured calculation/merge invocations,
+method-specific arguments, custom DFT coefficients and NFS scratch setup.
+No production calculation was submitted by these checks.

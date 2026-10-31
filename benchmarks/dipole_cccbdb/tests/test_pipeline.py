@@ -111,10 +111,86 @@ class SubmissionTests(unittest.TestCase):
                                            env=dict(env, ARRAY_SPEC='10-19%3'),
                                            text=True, capture_output=True, check=True)
                 self.assertIn('--array=10-19%3', json.loads(extra_run.stdout)['args'])
-                self.assertIn('--job-name=' + family + '_cccbdb_ax_0.125_ac_0.40', data['args'])
+                job_name = ('obdh_cccbdb_ax_0.125_ac_0.40' if family == 'obdh'
+                            else family + '_dipole_cccbdb')
+                self.assertIn('--job-name=' + job_name, data['args'])
                 self.assertEqual(data['args'][-3:], [str(job), '--dipole', 'dm'])
                 self.assertTrue((root / 'results/_output').is_dir())
                 self.assertTrue((root / 'results/_error').is_dir())
+
+    def test_execution_and_merge_arguments(self):
+        # Run the shell control flow with a captured Python invocation, no HPC/SCF.
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            activate = root / 'activate'
+            activate.write_text('')
+            capture = root / 'capture.json'
+            python = root / 'python'
+            python.write_text('#!' + sys.executable + '\nimport json,os,sys\n'
+                              'with open(os.environ["CAPTURE_PATH"],"w") as f:\n'
+                              ' json.dump(dict(args=sys.argv[1:],tmp=os.environ.get("TMPDIR"),'
+                              'pyscf_tmp=os.environ.get("PYSCF_TMPDIR"),'
+                              'locking=os.environ.get("HDF5_USE_FILE_LOCKING")),f)\n')
+            python.chmod(0o755)
+            module = root / 'module'
+            module.write_text('#!/bin/sh\nexit 0\n')
+            module.chmod(0o755)
+            env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
+                       CAPTURE_PATH=str(capture), SLURM_JOB_ID='123',
+                       SLURM_ARRAY_TASK_ID='19', SLURM_CPUS_PER_TASK='2',
+                       SCRATCH_ROOT=str(root / 'scratch'), CODE_ROOT=str(ROOT.parents[1]),
+                       HDF5_USE_FILE_LOCKING='TRUE', ALPHA_X='0.50', ALPHA_C='0.40')
+            sys.path.insert(0, str(ROOT.parent / 'dipole_152/tools'))
+            import run_dipole
+            for family in ('ccsd', 'dft', 'obdh'):
+                output = root / family
+                env['OUTPUT_DIR'] = str(output)
+                job = root / (family + '.sh')
+                job.write_text((ROOT / 'jobs' / family / 'job.sh').read_text().replace(
+                    'source /home/giahuy/.venv/bin/activate', 'source ' + str(activate)))
+                subprocess.run(['bash', str(job)], env=env, check=True, capture_output=True)
+                data = json.loads(capture.read_text())
+                args = data['args']
+                parsed = run_dipole.parser().parse_args(args[2:])
+                self.assertEqual(parsed.methods, {'ccsd': ['ccsd', 'ccsd_t'],
+                    'dft': ['pbe0', 'b3lyp', 'b2plyp'],
+                    'obdh': ['uhf', 'ump2', 'obmp2', 'obdh']}[family])
+                self.assertEqual(parsed.alpha, [0.5, 0.4])
+                self.assertEqual((parsed.ob_cycles, parsed.ob_tol), (300, 1e-8))
+                self.assertEqual((parsed.grid, parsed.scf_aux, parsed.mp2_aux), (4, 'none', 'auto'))
+                self.assertEqual(data['tmp'], str(root / 'scratch/123/19'))
+                self.assertEqual(data['pyscf_tmp'], data['tmp'])
+                self.assertEqual(data['locking'], 'FALSE')
+                if family != 'obdh':
+                    self.assertNotIn('--alpha', args)
+                    self.assertNotIn('--ob-cycles', args)
+                    self.assertNotIn('Alpha:', (output / 'dipole_19.txt').read_text())
+                if family == 'ccsd':
+                    self.assertNotIn('--grid', args)
+                    self.assertNotIn('--mp2-aux', args)
+                if family == 'dft':
+                    subprocess.run(['bash', str(job), '--methods', 'dh_matched',
+                                    '--alpha', '0.6', '0.3'], env=env,
+                                   check=True, capture_output=True)
+                    custom = json.loads(capture.read_text())
+                    custom_args = run_dipole.parser().parse_args(custom['args'][2:])
+                    self.assertEqual(custom_args.methods, ['dh_matched'])
+                    self.assertEqual(custom_args.alpha, [0.6, 0.3])
+                (output / 'dipole.meta.json').write_text('{}')
+                subprocess.run(['bash', str(job), '--merge'], env=env,
+                               check=True, capture_output=True)
+                merged = json.loads(capture.read_text())
+                self.assertIn('--merge', merged['args'])
+                self.assertNotIn('--methods', merged['args'])
+                self.assertEqual(merged['locking'], 'FALSE')
+
+    def test_ccsd_rejects_irrelevant_alpha(self):
+        with tempfile.TemporaryDirectory() as folder:
+            env = dict(os.environ, RESULT_ROOT=folder)
+            run = subprocess.run(['bash', str(ROOT / 'jobs/ccsd/job.sh'), '--submit',
+                                  '--alpha', '0.2', '0.3'], env=env, text=True, capture_output=True)
+            self.assertEqual(run.returncode, 2)
+            self.assertIn('do not use alpha', run.stderr)
 
     def test_inconsistent_alpha_outdir_and_missing_merge_are_rejected(self):
         job = ROOT / 'jobs/obdh/job.sh'
