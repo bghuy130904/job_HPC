@@ -330,5 +330,457 @@
     "unit": "Angstrom",
     "cas": "463-58-1",
     "geometry_source": "https://cccbdb.nist.gov/expgeom2x.asp?casno=463581"
+  },
+  "CH3F": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "C",
+        [
+          0,
+          0,
+          -0.6244
+        ]
+      ],
+      [
+        "F",
+        [
+          0,
+          0,
+          0.7402
+        ]
+      ],
+      [
+        "H",
+        [
+          0,
+          1.0245,
+          -0.9718
+        ]
+      ],
+      [
+        "H",
+        [
+          0.8873,
+          -0.5123,
+          -0.9718
+        ]
+      ],
+      [
+        "H",
+        [
+          -0.8873,
+          -0.5123,
+          -0.9718
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "593-53-3",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=593533&charge=0"
+  },
+  "CH3Cl": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "C",
+        [
+          0,
+          0,
+          -1.1282
+        ]
+      ],
+      [
+        "Cl",
+        [
+          0,
+          0,
+          0.6572
+        ]
+      ],
+      [
+        "H",
+        [
+          0,
+          1.0357,
+          -1.4679
+        ]
+      ],
+      [
+        "H",
+        [
+          0.8969,
+          -0.5179,
+          -1.4679
+        ]
+      ],
+      [
+        "H",
+        [
+          -0.8969,
+          -0.5179,
+          -1.4679
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "74-87-3",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=74873&charge=0"
+  },
+  "CH2F2": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "C",
+        [
+          0,
+          0,
+          0.5003
+        ]
+      ],
+      [
+        "H",
+        [
+          -0.9029,
+          0,
+          1.1002
+        ]
+      ],
+      [
+        "H",
+        [
+          0.9029,
+          0,
+          1.1002
+        ]
+      ],
+      [
+        "F",
+        [
+          0,
+          1.0962,
+          -0.289
+        ]
+      ],
+      [
+        "F",
+        [
+          0,
+          -1.0962,
+          -0.289
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "75-10-5",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=75105&charge=0"
+  },
+  "CH3OH": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "C",
+        [
+          -0.0503,
+          0.6685,
+          0
+        ]
+      ],
+      [
+        "O",
+        [
+          -0.0503,
+          -0.7585,
+          0
+        ]
+      ],
+      [
+        "H",
+        [
+          -1.0807,
+          1.0417,
+          0
+        ]
+      ],
+      [
+        "H",
+        [
+          0.465,
+          1.0417,
+          0.8924
+        ]
+      ],
+      [
+        "H",
+        [
+          0.465,
+          1.0417,
+          -0.8924
+        ]
+      ],
+      [
+        "H",
+        [
+          0.8544,
+          -1.0677,
+          0
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "67-56-1",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=67561&charge=0"
+  },
+  "CH2Cl2": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "C",
+        [
+          0,
+          0,
+          0.769
+        ]
+      ],
+      [
+        "H",
+        [
+          -0.9,
+          0,
+          1.3749
+        ]
+      ],
+      [
+        "H",
+        [
+          0.9,
+          0,
+          1.3749
+        ]
+      ],
+      [
+        "Cl",
+        [
+          0,
+          1.4666,
+          -0.2166
+        ]
+      ],
+      [
+        "Cl",
+        [
+          0,
+          -1.4666,
+          -0.2166
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "75-09-2",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=75092&charge=0"
+  },
+  "H2O2": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "O",
+        [
+          0,
+          0.7375,
+          -0.0528
+        ]
+      ],
+      [
+        "O",
+        [
+          0,
+          -0.7375,
+          -0.0528
+        ]
+      ],
+      [
+        "H",
+        [
+          0.819,
+          0.817,
+          0.422
+        ]
+      ],
+      [
+        "H",
+        [
+          -0.819,
+          -0.817,
+          0.422
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "7722-84-1",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=7722841&charge=0"
+  },
+  "N2O": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "N",
+        [
+          0,
+          0,
+          -1.1998
+        ]
+      ],
+      [
+        "N",
+        [
+          0,
+          0,
+          -0.0716
+        ]
+      ],
+      [
+        "O",
+        [
+          0,
+          0,
+          1.1126
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "10024-97-2",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=10024972&charge=0"
+  },
+  "HNO": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "H",
+        [
+          0,
+          -0.9718,
+          0.9211
+        ]
+      ],
+      [
+        "N",
+        [
+          0,
+          0.0648,
+          0.5834
+        ]
+      ],
+      [
+        "O",
+        [
+          0,
+          0.0648,
+          -0.6256
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "14332-28-6",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=14332286&charge=0"
+  },
+  "H2CS": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "S",
+        [
+          0,
+          0,
+          0.5846
+        ]
+      ],
+      [
+        "C",
+        [
+          0,
+          0,
+          -1.0262
+        ]
+      ],
+      [
+        "H",
+        [
+          0,
+          0.9244,
+          -1.598
+        ]
+      ],
+      [
+        "H",
+        [
+          0,
+          -0.9244,
+          -1.598
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "865-36-1",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=865361&charge=0"
+  },
+  "PH3": {
+    "charge": 0,
+    "multiplicity": 1,
+    "spin": 0,
+    "geometry": [
+      [
+        "P",
+        [
+          0,
+          0,
+          0
+        ]
+      ],
+      [
+        "H",
+        [
+          0,
+          -1.1932,
+          -0.7717
+        ]
+      ],
+      [
+        "H",
+        [
+          1.0333,
+          0.5966,
+          -0.7717
+        ]
+      ],
+      [
+        "H",
+        [
+          -1.0333,
+          0.5966,
+          -0.7717
+        ]
+      ]
+    ],
+    "unit": "Angstrom",
+    "cas": "7803-51-2",
+    "geometry_source": "https://cccbdb.nist.gov/exp2x.asp?casno=7803512&charge=0"
   }
 }

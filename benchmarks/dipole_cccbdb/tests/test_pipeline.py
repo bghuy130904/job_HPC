@@ -2,6 +2,8 @@
 import importlib.util
 import json
 import math
+import re
+from collections import Counter
 import os
 from pathlib import Path
 import subprocess
@@ -11,7 +13,8 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-NAMES = ['HF', 'HCl', 'CO', 'HCN', 'H2O', 'NH3', 'H2CO', 'H2S', 'SO2', 'OCS']
+NAMES = ['HF', 'HCl', 'CO', 'HCN', 'H2O', 'NH3', 'H2CO', 'H2S', 'SO2', 'OCS',
+         'CH3F', 'CH3Cl', 'CH2F2', 'CH3OH', 'CH2Cl2', 'H2O2', 'N2O', 'HNO', 'H2CS', 'PH3']
 
 
 class DatasetTests(unittest.TestCase):
@@ -22,10 +25,18 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(list(data), NAMES)  # Changes affect array indices.
         self.assertEqual(set(data), set(ref))
         self.assertEqual(set(data), set(sources['molecules']))
-        nuclear_charge = dict(H=1, C=6, N=7, O=8, F=9, S=16, Cl=17)
+        nuclear_charge = dict(H=1, C=6, N=7, O=8, F=9, P=15, S=16, Cl=17)
         for name, props in data.items():
             self.assertEqual((props['charge'], props['spin'], props['multiplicity']), (0, 0, 1))
             self.assertEqual(props['unit'], 'Angstrom')
+            formula = Counter()
+            for atom, count in re.findall(r'([A-Z][a-z]?)([0-9]*)', name):
+                formula[atom] += int(count or 1)
+            self.assertEqual(Counter(a for a, _ in props['geometry']), formula)
+            coords = [xyz for _, xyz in props['geometry']]
+            for i, xyz in enumerate(coords):
+                for other in coords[i + 1:]:
+                    self.assertGreater(math.dist(xyz, other), 0.6)
             ne = sum(nuclear_charge[a] for a, xyz in props['geometry'])
             self.assertEqual(ne % 2, 0)
             for atom, xyz in props['geometry']:
@@ -84,16 +95,22 @@ class SubmissionTests(unittest.TestCase):
                        RESULT_ROOT=str(root / 'results'), CODE_ROOT='/home/giahuy/Code/job',
                        ALPHA_X='0.125', ALPHA_C='0.40')
             env.pop('OUTPUT_DIR', None)
+            env.pop('ARRAY_SPEC', None)
             for family in ('obdh', 'dft', 'ccsd'):
                 job = ROOT / 'jobs' / family / 'job.sh'
                 subprocess.run(['bash', '-n', str(job)], check=True)
-                self.assertIn('#SBATCH --array=0-9%3', job.read_text())
+                self.assertIn('#SBATCH --array=0-19%3', job.read_text())
                 run = subprocess.run(['bash', str(job), '--submit', '--dipole', 'dm'],
                                      env=env, text=True, capture_output=True, check=True)
                 data = json.loads(run.stdout)
-                suffix = 'scaling/ax_0.125_ac_0.40' if family == 'obdh' else 'v1'
+                suffix = 'scaling_v2/ax_0.125_ac_0.40' if family == 'obdh' else 'v2'
                 self.assertEqual(data['output'], str(root / 'results' / suffix))
                 self.assertEqual(data['alpha'], ['0.125', '0.40'])
+                self.assertIn('--array=0-19%3', data['args'])
+                extra_run = subprocess.run(['bash', str(job), '--submit'],
+                                           env=dict(env, ARRAY_SPEC='10-19%3'),
+                                           text=True, capture_output=True, check=True)
+                self.assertIn('--array=10-19%3', json.loads(extra_run.stdout)['args'])
                 self.assertIn('--job-name=' + family + '_cccbdb_ax_0.125_ac_0.40', data['args'])
                 self.assertEqual(data['args'][-3:], [str(job), '--dipole', 'dm'])
                 self.assertTrue((root / 'results/_output').is_dir())
@@ -112,7 +129,7 @@ class SubmissionTests(unittest.TestCase):
             run = subprocess.run(['bash', str(ROOT / 'jobs/obdh/merge.sh')],
                                  env=env, text=True, capture_output=True)
             self.assertEqual(run.returncode, 2)
-            self.assertIn('/scaling/ax_0.60_ac_0.30/dipole.meta.json', run.stderr)
+            self.assertIn('/scaling_v2/ax_0.60_ac_0.30/dipole.meta.json', run.stderr)
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@
 #SBATCH --threads-per-core=1
 #SBATCH --mem=50G
 #SBATCH --time=48:00:00
-#SBATCH --array=0-9%3
+#SBATCH --array=0-19%3
 set -euo pipefail
 
 # Same launch convention as dipole_152/jobs/obdh/dipole_sp.sh.
@@ -41,14 +41,18 @@ INPUT_FILE="$CODE_ROOT/benchmarks/dipole_cccbdb/methods/ccsd/calc_dipmomt_ccsd.p
 INPUT_JSON="$CODE_ROOT/benchmarks/dipole_cccbdb/inputs/cccbdb_inputs.json"
 REF_JSON="$CODE_ROOT/benchmarks/dipole_cccbdb/references/ref_cccbdb.json"
 RESULT_ROOT="${RESULT_ROOT:-/data/giahuy/Result/CCSD/dipole_cccbdb}"
-OUTPUT_DIR="${OUTPUT_DIR:-$RESULT_ROOT/v1}"
+OUTPUT_DIR="${OUTPUT_DIR:-$RESULT_ROOT/v2}"
+
+# Expanded 20-species input has a different fingerprint from the original ten.
+# Use ARRAY_SPEC=10-19%3 with --submit to calculate only the additions.
+ARRAY_SPEC="${ARRAY_SPEC:-0-19%3}"
 
 if [[ "${1:-}" == "--submit" ]]; then
     shift
     # Freeze the pair and destination for this submitted array.
     export ALPHA_X ALPHA_C RESULT_ROOT OUTPUT_DIR CODE_ROOT SCRATCH_ROOT
     mkdir -p "$RESULT_ROOT/_output" "$RESULT_ROOT/_error"
-    exec sbatch --export=ALL --job-name="ccsd_cccbdb_${ALPHA_TAG}" \
+    exec sbatch --export=ALL --array="$ARRAY_SPEC" --job-name="ccsd_cccbdb_${ALPHA_TAG}" \
         --output="$RESULT_ROOT/_output/dipole_%A_%a.out" \
         --error="$RESULT_ROOT/_error/dipole_%A_%a.err" "$0" "$@"
 fi
